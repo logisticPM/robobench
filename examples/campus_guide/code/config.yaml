@@ -1,0 +1,25 @@
+robot:
+  ip: "192.168.50.31"
+  ssh_user: "ubuntu"
+  ssh_pass: "turtlebot4"
+  namespace: "turtlebot468"
+dds:
+  discovery_port: 11811
+  rmw_implementation: "rmw_fastrtps_cpp"
+workspace:
+  dir: "~/CS5335TurtleBot"
+
+known_poses:
+  front_door:     { x: 5.19,  y: 2.56,  theta: 0.0 }
+  back_door:      { x: -1.56, y: 0.86,  theta: 3.14 }
+  table_1:        { x: 6.54,  y: -0.38, theta: -1.57 }
+  table_2:        { x: 7.13,  y: -2.24, theta: -1.57 }
+  table_3:        { x: 5.89,  y: -4.69, theta: 0.0 }
+  table_4:        { x: 4.22,  y: -5.04, theta: 0.0 }
+  table_5:        { x: 2.14,  y: -5.49, theta: 0.0 }
+  table_6:        { x: 0.18,  y: -6.03, theta: 0.0 }
+  table_7:        { x: -2.02, y: -6.58, theta: 0.0 }
+  table_8:        { x: -3.13, y: -5.5,  theta: 0.0 }
+  table_9:        { x: -3.71, y: -3.63, theta: 0.0 }
+  charging_station: { x: -0.10, y: -0.24, theta: 0.0 }
+  stand_monitor:  { x: 2.56,  y: 0.26,  theta: 0.0 }

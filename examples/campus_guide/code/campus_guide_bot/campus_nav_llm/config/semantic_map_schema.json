@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["map_metadata", "locations"],
+  "properties": {
+    "map_metadata": {
+      "type": "object",
+      "required": ["map_file", "resolution", "origin", "annotated_date"],
+      "properties": {
+        "map_file": {"type": "string"},
+        "resolution": {"type": "number"},
+        "origin": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "annotated_date": {"type": "string", "format": "date"}
+      }
+    },
+    "locations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["x", "y", "description"],
+        "properties": {
+          "x":           {"type": "number"},
+          "y":           {"type": "number"},
+          "facing_deg":  {"type": "number", "default": 0},
+          "description": {"type": "string"},
+          "aliases":     {"type": "array", "items": {"type": "string"}},
+          "area":        {"type": "string"}
+        }
+      }
+    }
+  }
+}

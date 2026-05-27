@@ -1,0 +1,138 @@
+{
+  "map_metadata": {
+    "map_file": "my_map.pgm",
+    "resolution": 0.05,
+    "origin": [
+      -8.1,
+      -8.64,
+      0.0
+    ],
+    "annotated_date": "2026-03-03"
+  },
+  "locations": {
+    "table_1": {
+      "x": 6.54,
+      "y": -0.38,
+      "facing_deg": 270.0,
+      "description": "Student table nearest to the front door, right side of the classroom",
+      "aliases": [
+        "desk 1",
+        "first table",
+        "table near door"
+      ],
+      "area": "right_side"
+    },
+    "table_2": {
+      "x": 7.13,
+      "y": -2.24,
+      "facing_deg": 270.0,
+      "description": "Student table between table 1 and table 3, against the wall with a chair",
+      "aliases": [
+        "desk 2",
+        "middle table",
+        "second table"
+      ],
+      "area": "right_side"
+    },
+    "front_door": {
+      "x": 5.19,
+      "y": 2.56,
+      "facing_deg": 0.0,
+      "description": "Front entrance door of the classroom",
+      "aliases": [
+        "entrance",
+        "main door",
+        "door",
+        "front entrance"
+      ],
+      "area": "entrance"
+    },
+    "back_door": {
+      "x": -1.56,
+      "y": 0.86,
+      "facing_deg": 180.0,
+      "description": "Back exit door of the classroom",
+      "aliases": [
+        "rear door",
+        "back entrance",
+        "exit",
+        "back exit"
+      ],
+      "area": "back"
+    },
+    "charging_station": {
+      "x": -0.1,
+      "y": -0.24,
+      "facing_deg": 0.0,
+      "description": "charging station",
+      "aliases": [
+        "charging station"
+      ],
+      "area": "near back door"
+    },
+    "table_7": {
+      "x": -2.018,
+      "y": -6.578,
+      "facing_deg": 0.0,
+      "description": "table 7",
+      "aliases": [],
+      "area": "back right wall"
+    },
+    "table_6": {
+      "x": 0.184,
+      "y": -6.032,
+      "facing_deg": 0.0,
+      "description": "table 6",
+      "aliases": [],
+      "area": "back right wall"
+    },
+    "table_5": {
+      "x": 2.14,
+      "y": -5.486,
+      "facing_deg": 0.0,
+      "description": "table 5",
+      "aliases": [],
+      "area": "right wall"
+    },
+    "table_4": {
+      "x": 4.22,
+      "y": -5.045,
+      "facing_deg": 0.0,
+      "description": "table 4",
+      "aliases": [],
+      "area": "right wall"
+    },
+    "table_3": {
+      "x": 5.894,
+      "y": -4.693,
+      "facing_deg": 0.0,
+      "description": "table 3",
+      "aliases": [],
+      "area": "right wall"
+    },
+    "table_8": {
+      "x": -3.128,
+      "y": -5.503,
+      "facing_deg": 0.0,
+      "description": "table 8",
+      "aliases": [],
+      "area": "back wall"
+    },
+    "table_9": {
+      "x": -3.71,
+      "y": -3.635,
+      "facing_deg": 0.0,
+      "description": "table 9",
+      "aliases": [],
+      "area": "back wall"
+    },
+    "stand_monitor": {
+      "x": 2.563,
+      "y": 0.259,
+      "facing_deg": 0.0,
+      "description": "stand monitor",
+      "aliases": [],
+      "area": "middle"
+    }
+  }
+}
