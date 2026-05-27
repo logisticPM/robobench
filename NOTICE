@@ -1,0 +1,9 @@
+Robobench — Open-source ROS2 platform for robot hardware bring-up and debugging.
+Copyright 2026 The Robobench Contributors.
+
+This product includes work derived from the following projects:
+
+- CS5335TurtleBot (https://github.com/En-PingSu/CS5335TurtleBot)
+  Used as reference and, where licensed for redistribution, as imported code
+  in examples/campus_guide/ and ui/. See examples/campus_guide/README.md for
+  the exact license terms of imported portions.
