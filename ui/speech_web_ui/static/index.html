@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TurtleBot468 — Campus Voice Commander</title>
+<style>
+/* ── Reset & variables ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #06080f;
+  --bg2:       #0d1117;
+  --bg3:       #131b24;
+  --cyan:      #00d4ff;
+  --cyan2:     #00a8cc;
+  --green:     #00ff88;
+  --orange:    #ff9500;
+  --red:       #ff4466;
+  --text:      #c9d1d9;
+  --text-dim:  #5a6875;
+  --border:    rgba(0,212,255,.15);
+  --glow:      0 0 20px rgba(0,212,255,.35);
+  --radius:    12px;
+  --font:      'Segoe UI', system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Animated grid background ───────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+.layout {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: 1fr 340px;
+  grid-template-areas:
+    "header  header"
+    "main    sidebar"
+    "log     sidebar";
+  min-height: 100vh;
+  gap: 1px;
+  background: var(--border);
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+header {
+  grid-area: header;
+  background: var(--bg2);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  display: flex; align-items: center; gap: 12px;
+}
+.logo-icon {
+  width: 36px; height: 36px;
+  background: var(--cyan);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  box-shadow: var(--glow);
+}
+.logo-title {
+  font-size: 1.15rem; font-weight: 700; letter-spacing: 1px;
+  color: var(--cyan);
+}
+.logo-sub { font-size: .75rem; color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; }
+
+.header-status {
+  display: flex; align-items: center; gap: 20px;
+}
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: .75rem; font-weight: 600; letter-spacing: 1px;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  transition: all .3s;
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.status-pill.connected    { color: var(--green);  border-color: rgba(0,255,136,.3); }
+.status-pill.demo         { color: var(--orange); border-color: rgba(255,149,0,.3); }
+.status-pill.disconnected { color: var(--red);    border-color: rgba(255,68,102,.3); }
+.status-pill.connected  .status-dot  { animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Main panel ─────────────────────────────────────────────────── */
+main {
+  grid-area: main;
+  background: var(--bg);
+  padding: 36px 40px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+/* ── Mic button ─────────────────────────────────────────────────── */
+.mic-wrapper {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  width: 200px; height: 200px;
+}
+
+/* Ripple rings */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid var(--cyan);
+  opacity: 0;
+  pointer-events: none;
+}
+.ripple-1 { width: 130px; height: 130px; }
+.ripple-2 { width: 165px; height: 165px; }
+.ripple-3 { width: 200px; height: 200px; }
+
+.mic-wrapper.listening .ripple-1 { animation: ripple 1.6s ease-out infinite; }
+.mic-wrapper.listening .ripple-2 { animation: ripple 1.6s ease-out .4s infinite; }
+.mic-wrapper.listening .ripple-3 { animation: ripple 1.6s ease-out .8s infinite; }
+
+@keyframes ripple {
+  0%   { transform: scale(.8); opacity: .8; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+/* The actual button */
+.mic-btn {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  border: 2px solid var(--cyan);
+  background: linear-gradient(135deg, rgba(0,212,255,.15), rgba(0,212,255,.05));
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.4rem;
+  transition: all .2s;
+  box-shadow: var(--glow), inset 0 0 30px rgba(0,212,255,.1);
+  position: relative; z-index: 1;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.mic-btn:hover {
+  background: linear-gradient(135deg, rgba(0,212,255,.28), rgba(0,212,255,.12));
+  box-shadow: 0 0 35px rgba(0,212,255,.55), inset 0 0 40px rgba(0,212,255,.15);
+  transform: scale(1.05);
+}
+.mic-btn:active { transform: scale(.96); }
+.mic-btn.listening {
+  background: linear-gradient(135deg, rgba(0,212,255,.35), rgba(0,212,255,.18));
+  border-color: var(--cyan);
+  box-shadow: 0 0 50px rgba(0,212,255,.7), inset 0 0 40px rgba(0,212,255,.2);
+  animation: mic-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes mic-pulse {
+  from { transform: scale(1); }
+  to   { transform: scale(1.06); }
+}
+
+.mic-label {
+  font-size: .8rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: center;
+  transition: color .3s;
+}
+.mic-label.active { color: var(--cyan); }
+
+/* ── Waveform canvas ─────────────────────────────────────────────── */
+.waveform-container {
+  width: 100%; max-width: 500px; height: 60px;
+  position: relative;
+}
+canvas#waveform {
+  width: 100%; height: 100%;
+  border-radius: 8px;
+}
+
+/* ── Transcript ──────────────────────────────────────────────────── */
+.transcript-area {
+  width: 100%; max-width: 560px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  min-height: 90px;
+}
+.transcript-label {
+  font-size: .7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 8px;
+}
+#transcript-text {
+  font-size: 1.1rem; line-height: 1.6; color: var(--text);
+  min-height: 30px;
+}
+#transcript-text .interim { color: var(--text-dim); font-style: italic; }
+#transcript-text .final   { color: var(--cyan); font-weight: 600; }
+
+/* Send button */
+.send-row {
+  display: flex; gap: 12px; width: 100%; max-width: 560px;
+}
+#manual-input {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-size: .95rem;
+  outline: none;
+  transition: border-color .2s;
+}
+#manual-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,212,255,.15); }
+#manual-input::placeholder { color: var(--text-dim); }
+
+.btn {
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: 1px solid var(--cyan);
+  background: rgba(0,212,255,.1);
+  color: var(--cyan);
+  font-size: .85rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  cursor: pointer;
+  transition: all .2s;
+}
+.btn:hover {
+  background: rgba(0,212,255,.22);
+  box-shadow: var(--glow);
+}
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.danger {
+  border-color: var(--red); color: var(--red);
+  background: rgba(255,68,102,.08);
+}
+.btn.danger:hover { background: rgba(255,68,102,.2); box-shadow: 0 0 20px rgba(255,68,102,.3); }
+
+/* ── Robot reply bar ─────────────────────────────────────────────── */
+.reply-bar {
+  grid-area: log;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 14px 40px;
+  display: flex; align-items: center; gap: 14px;
+  min-height: 58px;
+}
+.reply-icon { font-size: 1.3rem; flex-shrink: 0; }
+#robot-reply-text {
+  font-size: .95rem; color: var(--green);
+  font-style: italic;
+}
+.nav-badge {
+  margin-left: auto;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: .72rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  display: none;
+}
+.nav-badge.navigating { display: inline-flex; background: rgba(255,149,0,.15); color: var(--orange); border: 1px solid rgba(255,149,0,.3); }
+.nav-badge.arrived    { display: inline-flex; background: rgba(0,255,136,.1);   color: var(--green);  border: 1px solid rgba(0,255,136,.25); }
+.nav-badge.failed     { display: inline-flex; background: rgba(255,68,102,.1);  color: var(--red);    border: 1px solid rgba(255,68,102,.25); }
+
+/* ── Sidebar ─────────────────────────────────────────────────────── */
+aside {
+  grid-area: sidebar;
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  padding: 24px 20px;
+  display: flex; flex-direction: column; gap: 24px;
+  overflow-y: auto;
+}
+
+.section-title {
+  font-size: .72rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title::before {
+  content: '';
+  display: inline-block; width: 3px; height: 14px;
+  background: var(--cyan); border-radius: 2px;
+}
+
+/* Location cards */
+.locations-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.loc-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: all .2s;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.loc-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(0,212,255,.08), transparent);
+  opacity: 0; transition: opacity .2s;
+}
+.loc-card:hover { border-color: var(--cyan); box-shadow: var(--glow); }
+.loc-card:hover::before { opacity: 1; }
+.loc-card:active { transform: scale(.97); }
+.loc-card.active { border-color: var(--cyan); background: rgba(0,212,255,.08); }
+.loc-card .loc-icon { font-size: 1.5rem; margin-bottom: 4px; }
+.loc-card .loc-name { font-size: .78rem; font-weight: 700; color: var(--cyan); letter-spacing: .5px; }
+.loc-card .loc-desc { font-size: .65rem; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+
+/* Command log */
+.cmd-log {
+  flex: 1;
+  display: flex; flex-direction: column; gap: 6px;
+  overflow-y: auto;
+  max-height: 320px;
+}
+.cmd-log:empty::after {
+  content: 'No commands yet';
+  color: var(--text-dim); font-size: .8rem; font-style: italic;
+}
+.cmd-entry {
+  background: var(--bg3);
+  border-left: 2px solid var(--border);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 10px;
+  font-size: .78rem;
+  animation: slide-in .2s ease;
+}
+@keyframes slide-in { from { opacity:0; transform:translateX(-8px) } to { opacity:1; transform:none } }
+.cmd-entry .cmd-time { color: var(--text-dim); font-size: .68rem; margin-bottom: 2px; }
+.cmd-entry .cmd-text { color: var(--text); }
+.cmd-entry .cmd-status { margin-top: 4px; font-size: .7rem; }
+.cmd-entry.sent   { border-left-color: var(--cyan); }
+.cmd-entry.reply  { border-left-color: var(--green); }
+.cmd-entry.error  { border-left-color: var(--red); }
+
+/* ── Noise not supported warning ──────────────────────────────────── */
+#no-speech-warning {
+  display: none;
+  padding: 12px 18px;
+  background: rgba(255,149,0,.1);
+  border: 1px solid rgba(255,149,0,.3);
+  border-radius: 8px;
+  color: var(--orange);
+  font-size: .85rem;
+  text-align: center;
+  max-width: 400px;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── HEADER ─────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🤖</div>
+      <div>
+        <div class="logo-title">TurtleBot468</div>
+        <div class="logo-sub">Campus Voice Commander</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-pill disconnected" id="ws-status-pill">
+        <span class="status-dot"></span>
+        <span id="ws-status-label">Connecting…</span>
+      </div>
+      <div class="status-pill demo" id="mode-pill" style="display:none">
+        <span class="status-dot"></span>
+        <span id="mode-label">DEMO MODE</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── MAIN ───────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- Mic button with ripple rings -->
+    <div class="mic-wrapper" id="mic-wrapper">
+      <div class="ripple ripple-1"></div>
+      <div class="ripple ripple-2"></div>
+      <div class="ripple ripple-3"></div>
+      <button class="mic-btn" id="mic-btn" title="Click to speak">🎤</button>
+    </div>
+    <div class="mic-label" id="mic-label">Click to Speak</div>
+
+    <!-- Live waveform -->
+    <div class="waveform-container">
+      <canvas id="waveform"></canvas>
+    </div>
+
+    <!-- Transcript display -->
+    <div class="transcript-area">
+      <div class="transcript-label">🗣 Live Transcript</div>
+      <div id="transcript-text"><span style="color:var(--text-dim);font-style:italic;">Start speaking or type below…</span></div>
+    </div>
+
+    <!-- No speech API warning -->
+    <div id="no-speech-warning">
+      ⚠️ Your browser doesn't support the Web Speech API.<br>
+      Use the text input below or try Chrome/Edge.
+    </div>
+
+    <!-- Manual text input -->
+    <div class="send-row">
+      <input type="text" id="manual-input" placeholder='e.g. "take me to table 1"' />
+      <button class="btn" id="send-btn" onclick="sendManual()">Send</button>
+      <button class="btn danger" id="stop-btn" onclick="stopListening()" style="display:none">Stop</button>
+    </div>
+
+  </main>
+
+  <!-- ── ROBOT REPLY BAR ─────────────────────────────────────────── -->
+  <div class="reply-bar">
+    <div class="reply-icon">💬</div>
+    <div id="robot-reply-text">Robot is standing by…</div>
+    <span class="nav-badge" id="nav-badge">Navigating</span>
+  </div>
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────────────── -->
+  <aside>
+
+    <div>
+      <div class="section-title">Quick Destinations</div>
+      <div class="locations-grid" id="locations-grid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Command History</div>
+      <div class="cmd-log" id="cmd-log"></div>
+    </div>
+
+  </aside>
+
+</div><!-- /.layout -->
+
+<script>
+// ── LOCATIONS DATA ──────────────────────────────────────────────────────────
+const LOCATIONS = [
+  { id: "table_1",    label: "Table 1",    icon: "🪑", desc: "Near front door",   cmd: "take me to table 1" },
+  { id: "table_2",    label: "Table 2",    icon: "🪑", desc: "Middle, against wall", cmd: "take me to table 2" },
+  { id: "table_3",    label: "Table 3",    icon: "🪑", desc: "Corner table",      cmd: "take me to table 3" },
+  { id: "front_door", label: "Front Door", icon: "🚪", desc: "Main entrance",     cmd: "take me to the front door" },
+  { id: "back_door",  label: "Back Door",  icon: "🔙", desc: "Rear exit",         cmd: "take me to the back door" },
+];
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let ws = null;
+let recognition = null;
+let isListening = false;
+let audioCtx = null;
+let analyser = null;
+let mediaStream = null;
+let animFrameId = null;
+let currentFinalText = "";
+let demoMode = false;
+
+// ── WEBSOCKET ───────────────────────────────────────────────────────────────
+function connectWS() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => setWSStatus("connected", "Connected");
+
+  ws.onclose = () => {
+    setWSStatus("disconnected", "Disconnected");
+    setTimeout(connectWS, 3000);  // auto-reconnect
+  };
+
+  ws.onerror = () => setWSStatus("disconnected", "Error");
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    handleServerMessage(msg);
+  };
+}
+
+function sendWS(payload) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(payload));
+  }
+}
+
+function setWSStatus(state, label) {
+  const pill = document.getElementById("ws-status-pill");
+  const lbl  = document.getElementById("ws-status-label");
+  pill.className = `status-pill ${state}`;
+  lbl.textContent = label;
+}
+
+// ── SERVER MESSAGE HANDLER ──────────────────────────────────────────────────
+function handleServerMessage(msg) {
+  switch (msg.type) {
+
+    case "server_status":
+      demoMode = msg.demo_mode;
+      const modePill = document.getElementById("mode-pill");
+      const modeLabel = document.getElementById("mode-label");
+      if (demoMode) {
+        modePill.style.display = "flex";
+        modeLabel.textContent = "DEMO MODE";
+      } else {
+        modePill.style.display = "none";
+      }
+      break;
+
+    case "command_sent":
+      addLog("sent", msg.text, msg.channel);
+      setNavBadge("navigating");
+      break;
+
+    case "robot_reply":
+      document.getElementById("robot-reply-text").textContent = msg.text;
+      addLog("reply", msg.text);
+      break;
+
+    case "nav_status": {
+      const d = msg.data;
+      if (d.status === "arrived") {
+        setNavBadge("arrived");
+        document.getElementById("robot-reply-text").textContent =
+          `✅ Arrived at ${d.target || "destination"}`;
+        highlightLocation(d.target);
+        setTimeout(() => setNavBadge(null), 5000);
+      } else if (d.status === "failed") {
+        setNavBadge("failed");
+        document.getElementById("robot-reply-text").textContent =
+          `❌ Navigation failed: ${d.error || "unknown error"}`;
+        setTimeout(() => setNavBadge(null), 5000);
+      }
+      break;
+    }
+  }
+}
+
+// ── SEND COMMAND ────────────────────────────────────────────────────────────
+function sendCommand(text) {
+  if (!text.trim()) return;
+  sendWS({ type: "speech_command", text: text.trim() });
+  document.getElementById("robot-reply-text").textContent = "Processing command…";
+}
+
+function sendManual() {
+  const inp = document.getElementById("manual-input");
+  const text = inp.value.trim();
+  if (!text) return;
+  sendCommand(text);
+  inp.value = "";
+}
+
+document.getElementById("manual-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") sendManual();
+});
+
+// ── MIC BUTTON & SPEECH RECOGNITION ────────────────────────────────────────
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SpeechRec) {
+  document.getElementById("no-speech-warning").style.display = "block";
+}
+
+function initRecognition() {
+  if (!SpeechRec) return null;
+
+  const r = new SpeechRec();
+  r.continuous = false;
+  r.lang = "en-US";
+  r.interimResults = true;
+  r.maxAlternatives = 1;
+
+  r.onstart = () => {
+    isListening = true;
+    currentFinalText = "";
+    document.getElementById("mic-wrapper").classList.add("listening");
+    document.getElementById("mic-btn").classList.add("listening");
+    document.getElementById("mic-label").textContent = "Listening…";
+    document.getElementById("mic-label").classList.add("active");
+    document.getElementById("stop-btn").style.display = "inline-block";
+    document.getElementById("transcript-text").innerHTML = '<span class="interim">…</span>';
+    startWaveform();
+  };
+
+  r.onresult = (e) => {
+    let interim = "";
+    let final = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) final += t;
+      else interim += t;
+    }
+    currentFinalText = final || currentFinalText;
+    const box = document.getElementById("transcript-text");
+    box.innerHTML =
+      (currentFinalText ? `<span class="final">${currentFinalText}</span> ` : "") +
+      (interim ? `<span class="interim">${interim}</span>` : "");
+  };
+
+  r.onend = () => {
+    stopListeningUI();
+    if (currentFinalText.trim()) {
+      sendCommand(currentFinalText.trim());
+      currentFinalText = "";
+    }
+  };
+
+  r.onerror = (e) => {
+    stopListeningUI();
+    if (e.error !== "no-speech" && e.error !== "aborted") {
+      document.getElementById("transcript-text").innerHTML =
+        `<span style="color:var(--red)">Mic error: ${e.error}</span>`;
+    }
+  };
+
+  return r;
+}
+
+function toggleListening() {
+  if (isListening) {
+    stopListening();
+  } else {
+    startListening();
+  }
+}
+
+function startListening() {
+  if (!SpeechRec) {
+    document.getElementById("no-speech-warning").style.display = "block";
+    return;
+  }
+  recognition = initRecognition();
+  try {
+    recognition.start();
+  } catch (e) {
+    console.warn("Recognition start error:", e);
+  }
+}
+
+function stopListening() {
+  if (recognition) {
+    try { recognition.stop(); } catch(e) {}
+    recognition = null;  // force fresh instance on next session
+  }
+}
+
+function stopListeningUI() {
+  isListening = false;
+  document.getElementById("mic-wrapper").classList.remove("listening");
+  document.getElementById("mic-btn").classList.remove("listening");
+  document.getElementById("mic-label").textContent = "Click to Speak";
+  document.getElementById("mic-label").classList.remove("active");
+  document.getElementById("stop-btn").style.display = "none";
+  stopWaveform();
+}
+
+document.getElementById("mic-btn").addEventListener("click", toggleListening);
+
+// ── WAVEFORM VISUALIZER ─────────────────────────────────────────────────────
+async function startWaveform() {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    const src = audioCtx.createMediaStreamSource(mediaStream);
+    src.connect(analyser);
+    drawWaveform();
+  } catch (e) {
+    console.warn("Microphone access denied or unavailable:", e);
+    drawIdleWaveform();
+  }
+}
+
+function stopWaveform() {
+  if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  analyser = null;
+  drawIdleWaveform();
+}
+
+function drawWaveform() {
+  const canvas = document.getElementById("waveform");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width = canvas.offsetWidth;
+  const H = canvas.height = canvas.offsetHeight;
+
+  const bufLen = analyser ? analyser.frequencyBinCount : 128;
+  const data = new Uint8Array(bufLen);
+
+  function frame() {
+    animFrameId = requestAnimationFrame(frame);
+    if (analyser) analyser.getByteTimeDomainData(data);
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Background gradient
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, "transparent");
+    grad.addColorStop(.3, "rgba(0,212,255,.06)");
+    grad.addColorStop(.7, "rgba(0,212,255,.06)");
+    grad.addColorStop(1, "transparent");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Waveform line
+    ctx.beginPath();
+    ctx.strokeStyle = "#00d4ff";
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = "#00d4ff";
+
+    const sliceW = W / bufLen;
+    let x = 0;
+    for (let i = 0; i < bufLen; i++) {
+      const v = analyser ? (data[i] / 128.0) : (Math.sin((Date.now() / 600) + i * .2) * .08 + 1);
+      const y = (v * H / 2);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceW;
+    }
+    ctx.stroke();
+  }
+  frame();
+}
+
+function drawIdleWaveform() {
+  const canvas = document.getElementById("waveform");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width = canvas.offsetWidth;
+  const H = canvas.height = canvas.offsetHeight;
+  ctx.clearRect(0, 0, W, H);
+  ctx.beginPath();
+  ctx.strokeStyle = "rgba(0,212,255,.25)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 8]);
+  ctx.moveTo(20, H / 2); ctx.lineTo(W - 20, H / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ── LOCATION CARDS ──────────────────────────────────────────────────────────
+function buildLocationCards() {
+  const grid = document.getElementById("locations-grid");
+  LOCATIONS.forEach(loc => {
+    const card = document.createElement("div");
+    card.className = "loc-card";
+    card.dataset.id = loc.id;
+    card.innerHTML = `
+      <div class="loc-icon">${loc.icon}</div>
+      <div class="loc-name">${loc.label}</div>
+      <div class="loc-desc">${loc.desc}</div>
+    `;
+    card.addEventListener("click", () => {
+      sendCommand(loc.cmd);
+      document.querySelectorAll(".loc-card").forEach(c => c.classList.remove("active"));
+      card.classList.add("active");
+      document.getElementById("transcript-text").innerHTML =
+        `<span class="final">${loc.cmd}</span>`;
+    });
+    grid.appendChild(card);
+  });
+}
+
+function highlightLocation(targetId) {
+  // Match by id or label
+  document.querySelectorAll(".loc-card").forEach(card => {
+    card.classList.remove("active");
+    const id = card.dataset.id;
+    if (id === targetId || id.replace("_"," ") === targetId) {
+      card.classList.add("active");
+    }
+  });
+}
+
+// ── COMMAND LOG ─────────────────────────────────────────────────────────────
+function addLog(type, text, extra) {
+  const log = document.getElementById("cmd-log");
+  const now = new Date().toLocaleTimeString("en-US", { hour12: false });
+  const div = document.createElement("div");
+  div.className = `cmd-entry ${type}`;
+
+  let statusHTML = "";
+  if (extra) statusHTML = `<div class="cmd-status" style="color:var(--text-dim)">${extra}</div>`;
+  if (type === "reply") statusHTML = `<div class="cmd-status" style="color:var(--green)">↩ Robot</div>`;
+
+  div.innerHTML = `
+    <div class="cmd-time">${now}</div>
+    <div class="cmd-text">${text}</div>
+    ${statusHTML}
+  `;
+  log.prepend(div);  // newest on top
+
+  // Trim to 50 entries
+  while (log.children.length > 50) log.removeChild(log.lastChild);
+}
+
+// ── NAV BADGE ───────────────────────────────────────────────────────────────
+function setNavBadge(state) {
+  const badge = document.getElementById("nav-badge");
+  badge.className = "nav-badge";
+  if (state === "navigating") {
+    badge.classList.add("navigating");
+    badge.textContent = "⚙ Navigating";
+  } else if (state === "arrived") {
+    badge.classList.add("arrived");
+    badge.textContent = "✓ Arrived";
+  } else if (state === "failed") {
+    badge.classList.add("failed");
+    badge.textContent = "✗ Failed";
+  }
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+buildLocationCards();
+connectWS();
+drawIdleWaveform();
+
+// Resize waveform on window resize
+window.addEventListener("resize", () => {
+  if (!isListening) drawIdleWaveform();
+});
+</script>
+</body>
+</html>

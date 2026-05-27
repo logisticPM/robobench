@@ -1,0 +1,2290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TurtleBot Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0e17; color: #e0e6ed; height: 100vh; overflow: hidden; }
+
+/* Layout */
+.container { display: grid; grid-template-columns: 1fr 380px; grid-template-rows: 48px 1fr; height: 100vh; gap: 0; }
+
+/* Header */
+header { grid-column: 1 / -1; background: #0d1219; border-bottom: 1px solid #1e2a3a; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+header h1 { font-size: 15px; font-weight: 600; color: #e0e6ed; }
+header h1 span { color: #00d4ff; }
+.status-pills { display: flex; gap: 8px; align-items: center; }
+.pill { padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.pill.ok { background: #0a2e1a; color: #00ff88; }
+.pill.degraded { background: #2e2a0a; color: #ff9500; }
+.pill.error { background: #2e0a0a; color: #ff4466; }
+.pill.demo { background: #1a1a2e; color: #9d8aff; }
+.pill.unknown { background: #1a1a1a; color: #666; }
+
+/* Map panel */
+.map-panel { position: relative; background: #080c14; overflow: hidden; }
+#mapCanvas { display: block; cursor: crosshair; }
+
+/* Map overlays */
+.map-legend { position: absolute; bottom: 12px; left: 12px; background: rgba(10,14,23,0.9); border: 1px solid #1e2a3a; border-radius: 8px; padding: 8px 12px; font-size: 11px; }
+.map-legend .loc-item { display: flex; align-items: center; gap: 6px; margin: 3px 0; cursor: pointer; }
+.map-legend .loc-item:hover { color: #00d4ff; }
+.loc-dot { width: 8px; height: 8px; border-radius: 50%; background: #00d4ff; display: inline-block; }
+.map-coords { position: absolute; top: 12px; left: 12px; background: rgba(10,14,23,0.9); border: 1px solid #1e2a3a; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-family: monospace; }
+
+/* Right panel */
+.right-panel { display: flex; flex-direction: column; background: #0d1219; border-left: 1px solid #1e2a3a; overflow: hidden; }
+.right-panel-top { flex: 0 1 auto; overflow-y: auto; min-height: 0; }
+.right-panel-top::-webkit-scrollbar { width: 4px; }
+.right-panel-top::-webkit-scrollbar-thumb { background: #1e2a3a; border-radius: 2px; }
+
+/* System status bar */
+.sys-bar { padding: 10px 14px; border-bottom: 1px solid #1e2a3a; font-size: 11px; }
+.sys-bar .label { color: #667; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px; }
+.sys-row { display: flex; justify-content: space-between; margin: 2px 0; }
+.sys-val { font-family: monospace; }
+.sys-val.good { color: #00ff88; }
+.sys-val.warn { color: #ff9500; }
+.sys-val.bad { color: #ff4466; }
+
+/* Chat area */
+.chat-area { flex: 1; overflow-y: auto; padding: 10px 14px; }
+.chat-area::-webkit-scrollbar { width: 4px; }
+.chat-area::-webkit-scrollbar-thumb { background: #1e2a3a; border-radius: 2px; }
+
+.msg { margin-bottom: 8px; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.4; max-width: 95%; animation: fadeIn 0.2s; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+.msg.user { background: #0a1e3a; border: 1px solid #1a3a5a; margin-left: auto; }
+.msg.robot { background: #0a2e1a; border: 1px solid #1a3a2a; }
+.msg.system { background: #1a1a2e; border: 1px solid #2a2a3e; font-size: 11px; color: #9d8aff; }
+.msg.tool { background: #131820; border: 1px solid #1e2a3a; font-size: 11px; font-family: monospace; color: #8899aa; }
+.msg .time { font-size: 10px; color: #445; margin-top: 3px; }
+
+/* Nav progress bar */
+.nav-bar { display: none; padding: 8px 14px; border-bottom: 1px solid #1e2a3a; }
+.nav-bar.active { display: block; }
+.nav-bar .nav-label { font-size: 11px; color: #00d4ff; margin-bottom: 4px; }
+.nav-progress-track { height: 4px; background: #1e2a3a; border-radius: 2px; overflow: hidden; }
+.nav-progress-fill { height: 100%; background: #00d4ff; transition: width 0.5s; }
+
+/* Input area */
+.input-area { padding: 10px 14px; border-top: 1px solid #1e2a3a; }
+.input-area input { flex: 1; background: #131820; border: 1px solid #1e2a3a; border-radius: 8px; padding: 8px 12px; color: #e0e6ed; font-size: 13px; outline: none; height: 36px; }
+.input-area input:focus { border-color: #00d4ff; }
+.input-area #sendBtn { background: #00d4ff; color: #000; border: none; border-radius: 8px; padding: 0 16px; font-weight: 600; font-size: 13px; cursor: pointer; height: 36px; display: inline-flex; align-items: center; justify-content: center; }
+.input-area #sendBtn:hover { background: #33ddff; }
+
+/* Voice input: row wrappers (inside .input-area) */
+.input-row, .recording-row { display: flex; gap: 8px; align-items: center; min-height: 36px; }
+
+/* Icon button base (used by mic, cancel, stop) */
+.input-area .icon-btn { background: #131820; border: 1px solid #1e2a3a; border-radius: 8px; color: #8899aa; cursor: pointer; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s; height: 36px; flex-shrink: 0; min-width: 36px; }
+.input-area .icon-btn:hover { border-color: #00d4ff; color: #00d4ff; background: #1a2430; }
+.input-area .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Mic button specifically (icon only, square) */
+.mic-btn { width: 36px; padding: 0 !important; }
+.mic-btn svg { width: 20px; height: 20px; stroke: currentColor; }
+
+/* Recording row: red-tinted, shows during voice capture */
+.recording-row { background: rgba(220, 53, 69, 0.12); border: 1px solid rgba(220, 53, 69, 0.3); border-radius: 8px; padding: 4px 8px; }
+.recording-row .cancel-btn { padding: 6px 12px; border-color: rgba(220, 53, 69, 0.4); color: #ff8899; }
+.recording-row .cancel-btn:hover { border-color: #ff4466; color: #ff4466; }
+.recording-row .stop-btn { padding: 6px 12px; border-color: rgba(0, 212, 255, 0.4); color: #00d4ff; }
+.recording-row .stop-btn:hover { border-color: #00d4ff; color: #33ddff; background: rgba(0, 212, 255, 0.1); }
+
+/* Pulsing red dot (recording indicator) */
+.rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff4466; flex-shrink: 0; animation: rec-pulse 1.2s ease-in-out infinite; }
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* Waveform container holds the dot + canvas, fills middle of recording row */
+.waveform-container { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
+#waveformCanvas { flex: 1; height: 32px; display: block; }
+
+/* Toast notifications (voice input errors) */
+.toast-container { position: fixed; top: 60px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; pointer-events: none; }
+.toast { background: #1a1f2e; border: 1px solid #2e0a0a; border-left: 3px solid #ff4466; border-radius: 6px; padding: 10px 14px; color: #e0e6ed; font-size: 12px; max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); animation: toast-in 0.2s ease-out, toast-out 0.3s ease-in 2.7s forwards; pointer-events: auto; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(20px); }
+}
+
+/* Destination buttons */
+.dest-grid { padding: 10px 14px; border-bottom: 1px solid #1e2a3a; }
+.dest-grid .label { color: #667; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; font-size: 11px; margin-bottom: 6px; }
+.dest-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.dest-btn { background: #131820; border: 1px solid #1e2a3a; border-radius: 6px; padding: 5px 10px; font-size: 11px; color: #aab; cursor: pointer; transition: all 0.15s; }
+.dest-btn:hover { border-color: #00d4ff; color: #00d4ff; }
+.dest-btn.active { border-color: #00ff88; color: #00ff88; }
+
+/* API Key panel */
+.apikey-panel { padding: 10px 14px; border-bottom: 1px solid #1e2a3a; }
+.apikey-panel .label { color: #667; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; font-size: 11px; margin-bottom: 6px; }
+.apikey-row { display: flex; gap: 6px; align-items: center; }
+.apikey-row input { flex: 1; background: #131820; border: 1px solid #1e2a3a; border-radius: 6px; padding: 5px 10px; color: #e0e6ed; font-size: 11px; font-family: monospace; outline: none; }
+.apikey-row input:focus { border-color: #00d4ff; }
+.apikey-toggle { background: none; border: 1px solid #1e2a3a; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px; color: #8899aa; }
+.apikey-toggle:hover { border-color: #00d4ff; }
+.apikey-status { font-size: 10px; margin-top: 4px; min-height: 14px; }
+.apikey-status.ok { color: #00ff88; }
+.apikey-status.err { color: #ff4466; }
+
+/* Pre-flight panel */
+.preflight-panel { border-bottom: 1px solid #1e2a3a; padding: 10px 14px; }
+.preflight-panel .label { color: #667; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; font-size: 11px; margin-bottom: 6px; }
+.preflight-controls { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.preflight-btn { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 6px; padding: 5px 12px; font-size: 11px; color: #aa88ff; cursor: pointer; font-weight: 600; }
+.preflight-btn:hover { background: #2a2a4e; }
+.preflight-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.preflight-btn.running { animation: pulse-border 1.5s infinite; }
+@keyframes pulse-border { 0%,100% { border-color: #2a2a4a; } 50% { border-color: #aa88ff; } }
+.preflight-summary { font-size: 11px; margin-left: 6px; font-weight: 600; }
+.preflight-summary.pass { color: #00ff88; }
+.preflight-summary.fail { color: #ff4466; }
+.preflight-summary.warn { color: #ff9500; }
+.preflight-summary.running { color: #aa88ff; }
+.preflight-checks { display: none; }
+.preflight-checks.visible { display: flex; flex-direction: column; gap: 3px; }
+.pf-check { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 4px 8px; border-radius: 4px; background: #0a0e17; }
+.pf-icon { width: 16px; text-align: center; font-size: 12px; flex-shrink: 0; }
+.pf-name { color: #aab; font-weight: 600; min-width: 110px; }
+.pf-detail { color: #667; flex: 1; font-size: 10px; }
+.pf-check.pass .pf-icon { color: #00ff88; }
+.pf-check.fail .pf-icon { color: #ff4466; }
+.pf-check.warn .pf-icon { color: #ff9500; }
+.pf-check.skip .pf-icon { color: #556; }
+.pf-check.running .pf-icon { color: #aa88ff; }
+.pf-fix { background: #2e0a1a; border: 1px solid #4a1a2a; border-radius: 4px; padding: 2px 8px; font-size: 10px; color: #ff6688; cursor: pointer; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.pf-fix:hover { background: #3d0d20; border-color: #ff4466; }
+.pf-fix:disabled { opacity: 0.4; cursor: not-allowed; }
+.pf-fix.fixing { animation: pulse-border 1s infinite; color: #aa88ff; border-color: #4a2a6a; background: #1a0a2e; }
+.preflight-log { display: none; margin-top: 6px; max-height: 150px; overflow-y: auto; font-size: 10px; font-family: 'SF Mono', 'Fira Code', monospace; background: #06080e; border: 1px solid #1a1a2e; border-radius: 4px; padding: 6px 8px; }
+.preflight-log.visible { display: block; }
+.preflight-log .pf-log-line { color: #667; padding: 1px 0; }
+.preflight-log .pf-log-line.step { color: #aa88ff; }
+.preflight-log .pf-log-line.ok { color: #00ff88; }
+.preflight-log .pf-log-line.err { color: #ff4466; }
+
+/* Odom active polling indicator */
+.odom-poll-status { display: none; margin-top: 6px; padding: 6px 10px; background: #06080e; border: 1px solid #1a1a2e; border-radius: 6px; font-size: 11px; }
+.odom-poll-status.visible { display: flex; align-items: center; gap: 8px; }
+.odom-poll-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.odom-poll-dot.checking { background: #aa88ff; animation: odom-blink 1s infinite; }
+.odom-poll-dot.ok { background: #00ff88; }
+.odom-poll-dot.fail { background: #ff4466; }
+@keyframes odom-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.odom-poll-text { color: #8899aa; }
+.odom-poll-timer { color: #556; font-family: monospace; margin-left: auto; }
+
+/* Add Location dialog */
+.add-loc-hint { display: none; position: absolute; top: 50px; left: 12px; background: rgba(10,14,23,0.95); border: 1px solid #00ff88; border-radius: 8px; padding: 8px 12px; font-size: 12px; color: #00ff88; z-index: 10; }
+.add-loc-hint.visible { display: block; }
+.add-loc-dialog { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #0d1219; border: 1px solid #1e2a3a; border-radius: 12px; padding: 20px; z-index: 100; min-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+.add-loc-dialog.visible { display: block; }
+.add-loc-dialog h3 { font-size: 14px; color: #00d4ff; margin-bottom: 12px; }
+.add-loc-dialog label { display: block; font-size: 11px; color: #8899aa; margin: 8px 0 3px; }
+.add-loc-dialog input, .add-loc-dialog select, .add-loc-dialog textarea { width: 100%; background: #131820; border: 1px solid #1e2a3a; border-radius: 6px; padding: 6px 10px; color: #e0e6ed; font-size: 12px; outline: none; font-family: inherit; }
+.add-loc-dialog input:focus, .add-loc-dialog textarea:focus { border-color: #00d4ff; }
+.add-loc-dialog textarea { resize: vertical; min-height: 40px; }
+.add-loc-dialog .coord-display { font-family: monospace; color: #00ff88; font-size: 12px; margin-bottom: 8px; }
+.add-loc-dialog .btn-row { display: flex; gap: 8px; margin-top: 14px; }
+.add-loc-dialog .btn-save { background: #0a2e1a; border: 1px solid #1a3a2a; border-radius: 6px; padding: 6px 16px; color: #00ff88; font-weight: 600; cursor: pointer; font-size: 12px; }
+.add-loc-dialog .btn-save:hover { background: #0d3d20; }
+.add-loc-dialog .btn-cancel { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 6px; padding: 6px 16px; color: #8899aa; cursor: pointer; font-size: 12px; }
+.add-loc-dialog .btn-cancel:hover { background: #2a2a3e; }
+.add-loc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+.add-loc-overlay.visible { display: block; }
+
+/* Deploy panel */
+.deploy-panel { border-bottom: 1px solid #1e2a3a; padding: 10px 14px; }
+.deploy-panel .label { color: #667; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; font-size: 11px; margin-bottom: 6px; }
+.deploy-controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.deploy-btn { background: #0a2e1a; border: 1px solid #1a3a2a; border-radius: 6px; padding: 5px 12px; font-size: 11px; color: #00ff88; cursor: pointer; font-weight: 600; }
+.deploy-btn:hover { background: #0d3d20; }
+.deploy-btn.stop { background: #2e0a0a; border-color: #3a1a1a; color: #ff4466; }
+.deploy-btn.stop:hover { background: #3d0d0d; }
+.deploy-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.deploy-opts { display: flex; gap: 10px; margin-top: 5px; font-size: 11px; }
+.deploy-opts label { display: flex; align-items: center; gap: 4px; color: #8899aa; cursor: pointer; }
+.deploy-opts input[type=checkbox] { accent-color: #00d4ff; }
+.deploy-opts select { background: #131820; border: 1px solid #1e2a3a; color: #e0e6ed; border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+.deploy-log { max-height: 300px; overflow-y: auto; margin-top: 6px; font-family: monospace; font-size: 11px; line-height: 1.6; background: #080c14; border-radius: 4px; padding: 8px 10px; display: none; }
+.deploy-log::-webkit-scrollbar { width: 3px; }
+.deploy-log::-webkit-scrollbar-thumb { background: #1e2a3a; }
+.deploy-log.visible { display: block; }
+.dlog-info { color: #8899aa; }
+.dlog-warn { color: #ff9500; }
+.dlog-error { color: #ff4466; }
+.dlog-step { color: #00d4ff; font-weight: bold; }
+.dlog-done { color: #00ff88; font-weight: bold; }
+
+/* Create3 panel */
+.create3-panel { border-bottom: 1px solid #1e2a3a; padding: 10px 14px; }
+.create3-panel .label { color: #667; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; font-size: 11px; margin-bottom: 6px; }
+.create3-controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.create3-btn { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 6px; padding: 5px 12px; font-size: 11px; color: #aa88ff; cursor: pointer; font-weight: 600; }
+.create3-btn:hover { background: #2a2a4e; }
+.create3-btn.warn { background: #2e1a0a; border-color: #3a2a1a; color: #ff9500; }
+.create3-btn.warn:hover { background: #3d2a0d; }
+.create3-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.create3-status { font-size: 10px; margin-top: 4px; min-height: 14px; color: #8899aa; }
+.create3-status.ok { color: #00ff88; }
+.create3-status.err { color: #ff4466; }
+
+/* Map click-to-set-pose mode */
+.map-panel.set-pose { cursor: crosshair; }
+.set-pose-hint { position: absolute; top: 12px; right: 12px; background: rgba(255,149,0,0.9); color: #000; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-weight: 600; display: none; }
+.set-pose-hint.visible { display: block; }
+
+/* System Logs overlay */
+.logs-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.88); z-index: 999; display: flex; align-items: stretch; justify-content: center; padding: 24px; }
+.logs-container { background: #0d1219; border: 1px solid #1e2a3a; border-radius: 12px; width: 95%; max-width: 1200px; display: flex; flex-direction: column; overflow: hidden; }
+.logs-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid #1e2a3a; }
+.logs-header h2 { font-size: 15px; color: #e0e6ed; font-weight: 600; }
+.logs-header h2 span { color: #00d4ff; }
+.logs-tabs { display: flex; gap: 6px; }
+.logs-tab { background: #131820; border: 1px solid #1e2a3a; border-radius: 6px; padding: 5px 12px; font-size: 11px; color: #8899aa; cursor: pointer; font-weight: 600; }
+.logs-tab:hover { border-color: #00d4ff; color: #00d4ff; }
+.logs-tab.active { border-color: #00d4ff; color: #00d4ff; background: #0a1e3a; }
+.logs-close { background: none; border: none; color: #ff4466; font-size: 22px; cursor: pointer; padding: 0 4px; }
+.logs-body { display: flex; flex: 1; overflow: hidden; }
+.logs-sidebar { width: 260px; border-right: 1px solid #1e2a3a; overflow-y: auto; padding: 8px 0; }
+.logs-sidebar::-webkit-scrollbar { width: 3px; }
+.logs-sidebar::-webkit-scrollbar-thumb { background: #1e2a3a; }
+.log-item { padding: 6px 14px; cursor: pointer; font-size: 11px; border-left: 3px solid transparent; }
+.log-item:hover { background: #131820; }
+.log-item.active { background: #0a1e3a; border-left-color: #00d4ff; }
+.log-item .log-name { color: #e0e6ed; font-weight: 500; }
+.log-item .log-meta { color: #556; font-size: 10px; margin-top: 2px; }
+.log-type-badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; margin-right: 4px; text-transform: uppercase; }
+.log-type-badge.deploy { background: #0a2e1a; color: #00ff88; }
+.log-type-badge.lifecycle { background: #1a1a2e; color: #aa88ff; }
+.log-type-badge.events { background: #2e2a0a; color: #ff9500; }
+.log-type-badge.session { background: #0a1e3a; color: #00d4ff; }
+.logs-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.logs-content-header { padding: 8px 16px; border-bottom: 1px solid #1e2a3a; font-size: 12px; color: #667; display: flex; justify-content: space-between; align-items: center; }
+.logs-viewer { flex: 1; overflow-y: auto; padding: 12px 16px; font-family: monospace; font-size: 11px; line-height: 1.6; white-space: pre-wrap; color: #c0c8d0; }
+.logs-viewer::-webkit-scrollbar { width: 4px; }
+.logs-viewer::-webkit-scrollbar-thumb { background: #1e2a3a; border-radius: 2px; }
+.logs-viewer .log-line-error { color: #ff4466; }
+.logs-viewer .log-line-warn { color: #ff9500; }
+.logs-viewer .log-line-step { color: #00d4ff; font-weight: bold; }
+.logs-viewer .log-line-ok { color: #00ff88; }
+
+/* Diagnostics panel in logs */
+.diag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 16px; }
+.diag-item { background: #131820; border: 1px solid #1e2a3a; border-radius: 8px; padding: 10px 14px; }
+.diag-item .diag-name { font-size: 11px; color: #667; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
+.diag-item .diag-val { font-size: 13px; font-family: monospace; }
+.diag-item .diag-val.ok { color: #00ff88; }
+.diag-item .diag-val.warn { color: #ff9500; }
+.diag-item .diag-val.error { color: #ff4466; }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <header>
+    <h1><span>TurtleBot</span> Dashboard</h1>
+    <div class="status-pills">
+      <div class="pill unknown" id="statusPill">CONNECTING</div>
+      <div class="pill unknown" id="locPill">LOC --</div>
+    </div>
+  </header>
+
+  <!-- Map -->
+  <div class="map-panel">
+    <canvas id="mapCanvas"></canvas>
+    <div class="map-coords" id="mapCoords">x: -- y: --</div>
+    <div class="map-legend" id="mapLegend"></div>
+    <div class="set-pose-hint" id="setPoseHint">Click map to set initial pose (ESC to cancel)</div>
+    <div class="add-loc-hint" id="addLocHint">Click map to place new location (ESC to cancel)</div>
+  </div>
+
+  <!-- Add Location dialog -->
+  <div class="add-loc-overlay" id="addLocOverlay" onclick="cancelAddLocation()"></div>
+  <div class="add-loc-dialog" id="addLocDialog">
+    <h3>Add Location</h3>
+    <div class="coord-display" id="addLocCoords">x: --, y: --</div>
+    <label>Name (snake_case)</label>
+    <input type="text" id="addLocName" placeholder="e.g. whiteboard">
+    <label>Description</label>
+    <input type="text" id="addLocDesc" placeholder="e.g. Whiteboard at the front of the room">
+    <label>Aliases (comma-separated)</label>
+    <input type="text" id="addLocAliases" placeholder="e.g. board, white board">
+    <label>Facing direction</label>
+    <select id="addLocFacing">
+      <option value="0">North (0°)</option>
+      <option value="90">East (90°)</option>
+      <option value="180">South (180°)</option>
+      <option value="270">West (270°)</option>
+    </select>
+    <label>Area</label>
+    <input type="text" id="addLocArea" placeholder="e.g. front, back, corner">
+    <div class="btn-row">
+      <button class="btn-save" onclick="saveNewLocation()">Save</button>
+      <button class="btn-cancel" onclick="cancelAddLocation()">Cancel</button>
+    </div>
+    <div id="addLocStatus" style="font-size:11px; margin-top:8px; min-height:14px;"></div>
+  </div>
+
+  <!-- Edit Location dialog -->
+  <div class="add-loc-overlay" id="editLocOverlay" onclick="cancelEditLocation()"></div>
+  <div class="add-loc-dialog" id="editLocDialog">
+    <h3>Edit Location: <span id="editLocTitle"></span></h3>
+    <div class="coord-display" id="editLocCoords">x: --, y: --</div>
+    <label>Description</label>
+    <input type="text" id="editLocDesc">
+    <label>Aliases (comma-separated)</label>
+    <input type="text" id="editLocAliases">
+    <label>Facing direction</label>
+    <select id="editLocFacing">
+      <option value="0">North (0°)</option>
+      <option value="90">East (90°)</option>
+      <option value="180">South (180°)</option>
+      <option value="270">West (270°)</option>
+    </select>
+    <label>Area</label>
+    <input type="text" id="editLocArea">
+    <div style="margin-top:10px;">
+      <label style="color:#ff9500;">Reposition: click map while this dialog is open</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn-save" onclick="saveEditLocation()">Save</button>
+      <button class="btn-cancel" onclick="cancelEditLocation()">Cancel</button>
+      <button class="btn-cancel" onclick="deleteLocation()" style="color:#ff4466; border-color:#3a1a1a; margin-left:auto;">Delete</button>
+    </div>
+    <div id="editLocStatus" style="font-size:11px; margin-top:8px; min-height:14px;"></div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="right-panel">
+    <!-- System status -->
+    <div class="right-panel-top">
+    <div class="sys-bar" id="sysBar">
+      <div class="label">System</div>
+      <div class="sys-row"><span>Pose</span><span class="sys-val" id="sysPose">--</span></div>
+      <div class="sys-row"><span>Covariance</span><span class="sys-val" id="sysCov">--</span></div>
+      <div class="sys-row"><span>Nav</span><span class="sys-val" id="sysNav">idle</span></div>
+      <div class="sys-row"><span>Battery</span><span class="sys-val" id="sysBattery">--</span></div>
+      <div class="sys-row"><span>Topics</span><span class="sys-val" id="sysTopics" style="font-size:10px">--</span></div>
+    </div>
+
+    <!-- API Key -->
+    <div class="apikey-panel">
+      <div class="label">OpenRouter API Key</div>
+      <div class="apikey-row">
+        <input type="password" id="apiKeyInput" placeholder="sk-or-..." autocomplete="off" spellcheck="false">
+        <button class="deploy-btn" id="apiKeySaveBtn" onclick="saveApiKey()">Save</button>
+        <button class="apikey-toggle" onclick="toggleKeyVisibility()" title="Show/hide key">👁</button>
+      </div>
+      <div class="apikey-status" id="apiKeyStatus"></div>
+    </div>
+
+    <!-- Pre-flight Checks -->
+    <div class="preflight-panel">
+      <div class="label">Pre-flight Checks</div>
+      <div class="preflight-controls">
+        <button class="preflight-btn" id="preflightBtn" onclick="runPreflight()">Run Checks</button>
+        <span class="preflight-summary" id="preflightSummary"></span>
+      </div>
+      <div class="preflight-checks" id="preflightChecks"></div>
+      <div class="preflight-log" id="preflightLog"></div>
+      <div class="odom-poll-status" id="odomPollStatus">
+        <span class="odom-poll-dot checking" id="odomPollDot"></span>
+        <span class="odom-poll-text" id="odomPollText">Checking odom...</span>
+        <span class="odom-poll-timer" id="odomPollTimer"></span>
+      </div>
+    </div>
+
+    <!-- Deploy -->
+    <div class="deploy-panel">
+      <div class="label">Deploy</div>
+      <div class="deploy-controls">
+        <button class="deploy-btn" id="deployBtn" onclick="startDeploy()">Deploy</button>
+        <button class="deploy-btn stop" id="deployStopBtn" onclick="stopDeploy()">Stop</button>
+        <button class="deploy-btn" id="copyLogBtn" onclick="copyDeployLog()" title="Copy deploy log to clipboard">Copy Log</button>
+        <button class="deploy-btn" id="setPoseBtn" onclick="toggleSetPose()" title="Click map to set initial pose">Set Pose</button>
+      </div>
+      <div class="deploy-opts">
+        <label><input type="checkbox" id="skipBuild"> Skip build</label>
+        <label><input type="checkbox" id="skipClock"> Skip clock</label>
+        <label>Pose:
+          <select id="deployPose">
+            <option value="front_door">front door</option>
+            <option value="back_door">back door</option>
+            <option value="table_1">table 1</option>
+            <option value="table_2">table 2</option>
+            <option value="table_3">table 3</option>
+            <option value="charging_station">charging station</option>
+          </select>
+        </label>
+      </div>
+      <div class="deploy-log" id="deployLog"></div>
+    </div>
+
+    <!-- Robot Management -->
+    <div class="create3-panel">
+      <div class="label">Robot Management</div>
+      <div class="create3-controls">
+        <button class="create3-btn" onclick="create3Action('sync-clock')" title="Restart NTP on Create3 to fix clock drift">Sync Clock</button>
+        <button class="create3-btn" onclick="create3Action('restart-app')" title="Restart Create3 ROS application (recovers odom/scan)">Restart C3 App</button>
+        <button class="create3-btn warn" onclick="if(confirm('Reboot Create3 hardware? Takes several minutes.')) create3Action('reboot')" title="Full hardware reboot">Reboot C3</button>
+        <button class="create3-btn" onclick="rpiAction('restart-turtlebot4')" title="Restart turtlebot4.service on RPi (recovers all ROS topics)">Restart RPi ROS</button>
+        <button class="create3-btn" onclick="restartRos2Daemon()" title="Restart local ros2 daemon — fixes empty topic list under Discovery Server">Restart ROS2 Daemon</button>
+      </div>
+      <div class="create3-status" id="create3Status"></div>
+      <div style="margin-top:6px; display:flex; gap:6px;">
+        <button class="create3-btn" onclick="showQualityReport()" title="Generate quality report from session logs" style="background:#1a2e1a; border-color:#2a4a2a; color:#88ff88;">Quality Report</button>
+        <button class="create3-btn" onclick="showSystemLogs()" title="View deploy logs, lifecycle logs, event logs, diagnostics" style="background:#0a1e3a; border-color:#1a3a5a; color:#00d4ff;">System Logs</button>
+      </div>
+    </div>
+
+    <!-- Quick destinations -->
+    <div class="dest-grid">
+      <div class="label">Navigate to</div>
+      <div class="dest-btns" id="destBtns"></div>
+      <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="deploy-btn" onclick="dockAction('undock')" title="Undock from charging station (must do before navigating)" style="background:#1a1a2e; border-color:#2a2a4a; color:#aa88ff;">Undock</button>
+        <button class="deploy-btn" onclick="dockAction('dock')" title="Return to charging dock" style="background:#1a1a2e; border-color:#2a2a4a; color:#aa88ff;">Dock</button>
+        <button class="deploy-btn" onclick="sendRosCommand('relocalize')" title="Spread AMCL particles and spin to fix localization">Relocalize</button>
+        <button class="deploy-btn" onclick="sendRosCommand('clear costmap')" title="Clear costmaps for recovery">Clear Costmap</button>
+        <button class="deploy-btn" onclick="sendRosCommand('cancel')" title="Cancel current navigation" style="background:#2e0a0a; border-color:#3a1a1a; color:#ff4466;">Cancel Nav</button>
+        <button class="deploy-btn" id="addLocBtn" onclick="toggleAddLocation()" title="Click map to add a new named location" style="background:#0a2e1a; border-color:#1a3a2a; color:#00ff88;">+ Add Location</button>
+      </div>
+    </div>
+
+    <!-- Nav progress -->
+    <div class="nav-bar" id="navBar">
+      <div class="nav-label" id="navLabel">Navigating...</div>
+      <div class="nav-progress-track"><div class="nav-progress-fill" id="navFill" style="width:0%"></div></div>
+    </div>
+    </div><!-- end right-panel-top -->
+
+    <!-- Chat -->
+    <div class="chat-area" id="chatArea"></div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <!-- Idle state: shown by default -->
+      <div class="input-row" id="inputRow">
+        <button class="icon-btn mic-btn" id="micBtn" type="button" title="Voice input" aria-label="Start voice input">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+        </button>
+        <input type="text" id="cmdInput" placeholder="Type a command..." autocomplete="off">
+        <button id="sendBtn" onclick="sendCommand()">Send</button>
+      </div>
+
+      <!-- Recording state: hidden by default -->
+      <div class="recording-row" id="recordingRow" style="display:none">
+        <button class="icon-btn cancel-btn" id="cancelBtn" type="button" title="Cancel (Esc)">Cancel</button>
+        <div class="waveform-container">
+          <span class="rec-dot"></span>
+          <canvas id="waveformCanvas" width="180" height="32"></canvas>
+        </div>
+        <button class="icon-btn stop-btn" id="stopBtn" type="button" title="Stop recording">Stop</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let ws = null;
+let mapInfo = null;
+let mapImg = null;
+let robotPose = { px: 0, py: 0, theta: 0, x: 0, y: 0 };
+let locations = {};
+let canvas, ctx;
+let demoMode = true;
+let navStartDist = 0;
+
+// ── Voice input state ──
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;       // SpeechRecognition instance (lazy init)
+let isRecording = false;      // state machine flag
+let mediaStream = null;       // MediaStream from getUserMedia
+let audioCtx = null;          // AudioContext
+let analyser = null;          // AnalyserNode for waveform
+let rafId = null;             // requestAnimationFrame handle
+let finalTranscript = '';     // accumulated final recognition results
+let interimTranscript = '';   // latest interim result (fallback if no final)
+
+// ── Init ──
+window.addEventListener('load', async () => {
+  canvas = document.getElementById('mapCanvas');
+  ctx = canvas.getContext('2d');
+
+  // Load map info
+  const resp = await fetch('/api/map-info');
+  mapInfo = await resp.json();
+  locations = mapInfo.locations;
+
+  // Build destination buttons & legend
+  buildDestButtons();
+  buildLegend();
+
+  // Load map image
+  mapImg = new Image();
+  mapImg.onload = () => { resizeCanvas(); drawMap(); };
+  mapImg.src = '/static/map.png';
+
+  window.addEventListener('resize', () => { resizeCanvas(); drawMap(); });
+
+  // Connect WebSocket
+  connectWS();
+
+  // Voice input: disable mic button if SpeechRecognition not supported
+  const micBtn = document.getElementById('micBtn');
+  if (!SpeechRec) {
+    micBtn.disabled = true;
+    micBtn.title = 'Voice input not supported in this browser';
+  }
+
+  // Voice input: event handlers
+  micBtn.addEventListener('click', () => {
+    if (!SpeechRec) {
+      showToast('Voice input not supported in this browser');
+      return;
+    }
+    startRecording();
+  });
+  document.getElementById('cancelBtn').addEventListener('click', cancelRecording);
+  document.getElementById('stopBtn').addEventListener('click', () => {
+    // Stop signals the recognizer to finalize — onend will fill the input
+    if (recognition && isRecording) {
+      try { recognition.stop(); } catch (e) {}
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isRecording) cancelRecording();
+  });
+
+  // Input enter key
+  document.getElementById('cmdInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendCommand();
+  });
+
+  // Map mouse tracking
+  canvas.addEventListener('mousemove', onMapMouse);
+  canvas.addEventListener('click', onMapClick);
+});
+
+function resizeCanvas() {
+  const panel = canvas.parentElement;
+  canvas.width = panel.clientWidth;
+  canvas.height = panel.clientHeight;
+}
+
+// ── Map drawing ──
+function getMapScale() {
+  if (!mapImg || !mapImg.naturalWidth) return { scale: 1, ox: 0, oy: 0 };
+  const padding = 0.9;  // 90% of available space — leaves margin
+  const sw = canvas.width / mapImg.naturalWidth;
+  const sh = canvas.height / mapImg.naturalHeight;
+  const scale = Math.min(sw, sh) * padding;
+  const ox = (canvas.width - mapImg.naturalWidth * scale) / 2;
+  const oy = (canvas.height - mapImg.naturalHeight * scale) / 2;
+  return { scale, ox, oy };
+}
+
+function drawMap() {
+  if (!mapImg || !ctx) return;
+  const { scale, ox, oy } = getMapScale();
+
+  ctx.fillStyle = '#080c14';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(mapImg, ox, oy, mapImg.naturalWidth * scale, mapImg.naturalHeight * scale);
+
+  // Draw location markers
+  for (const [name, loc] of Object.entries(locations)) {
+    const sx = ox + loc.px * scale;
+    const sy = oy + loc.py * scale;
+
+    ctx.beginPath();
+    ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.3)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#00d4ff';
+    ctx.fill();
+
+    ctx.font = '10px Segoe UI';
+    ctx.fillStyle = '#aabbcc';
+    ctx.textAlign = 'center';
+    ctx.fillText(name.replace(/_/g, ' '), sx, sy - 10);
+  }
+
+  // Draw robot
+  if (robotPose.px || robotPose.py) {
+    const rx = ox + robotPose.px * scale;
+    const ry = oy + robotPose.py * scale;
+
+    // Glow
+    ctx.beginPath();
+    ctx.arc(rx, ry, 12, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 255, 136, 0.15)';
+    ctx.fill();
+
+    // Body
+    ctx.beginPath();
+    ctx.arc(rx, ry, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#00ff88';
+    ctx.fill();
+    ctx.strokeStyle = '#080c14';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Direction arrow
+    const angle = -robotPose.theta; // canvas Y is flipped
+    const ax = rx + Math.cos(angle) * 14;
+    const ay = ry - Math.sin(angle) * 14;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry);
+    ctx.lineTo(ax, ay);
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(drawMap);
+}
+
+function onMapMouse(e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const { scale, ox, oy } = getMapScale();
+  const px = (mx - ox) / scale;
+  const py = (my - oy) / scale;
+  const wx = (px * mapInfo.map.resolution + mapInfo.map.origin_x).toFixed(2);
+  const wy = ((mapInfo.map.height - py) * mapInfo.map.resolution + mapInfo.map.origin_y).toFixed(2);
+  document.getElementById('mapCoords').textContent = `x: ${wx}  y: ${wy}`;
+}
+
+function onMapClick(e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const { scale, ox, oy } = getMapScale();
+
+  // Edit-location reposition: click map while edit dialog is open
+  if (document.getElementById('editLocDialog').classList.contains('visible')) {
+    const px = (mx - ox) / scale;
+    const py = (my - oy) / scale;
+    const wx = px * mapInfo.map.resolution + mapInfo.map.origin_x;
+    const wy = (mapInfo.map.height - py) * mapInfo.map.resolution + mapInfo.map.origin_y;
+    _editLocX = wx;
+    _editLocY = wy;
+    document.getElementById('editLocCoords').textContent = `x: ${wx.toFixed(3)}, y: ${wy.toFixed(3)}`;
+    document.getElementById('editLocCoords').style.color = '#ff9500';
+    return;
+  }
+
+  // Add-location mode: click to place a new semantic map point
+  if (addLocMode) {
+    const px = (mx - ox) / scale;
+    const py = (my - oy) / scale;
+    const wx = px * mapInfo.map.resolution + mapInfo.map.origin_x;
+    const wy = (mapInfo.map.height - py) * mapInfo.map.resolution + mapInfo.map.origin_y;
+    showAddLocationDialog(wx, wy);
+    return;
+  }
+
+  // Set-pose mode: click anywhere on map to set initial pose
+  if (setPoseMode) {
+    const px = (mx - ox) / scale;
+    const py = (my - oy) / scale;
+    const wx = px * mapInfo.map.resolution + mapInfo.map.origin_x;
+    const wy = (mapInfo.map.height - py) * mapInfo.map.resolution + mapInfo.map.origin_y;
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'set_pose', x: wx, y: wy, theta: 0 }));
+      addChat('system', `Initial pose set to (${wx.toFixed(2)}, ${wy.toFixed(2)})`);
+    }
+    cancelSetPose();
+    return;
+  }
+
+  // Check if clicked near a location
+  for (const [name, loc] of Object.entries(locations)) {
+    const sx = ox + loc.px * scale;
+    const sy = oy + loc.py * scale;
+    const dist = Math.hypot(mx - sx, my - sy);
+    if (dist < 15) {
+      navigateTo(name);
+      return;
+    }
+  }
+}
+
+// ── Destinations ──
+function buildDestButtons() {
+  const container = document.getElementById('destBtns');
+  container.innerHTML = '';
+  for (const name of Object.keys(locations)) {
+    const btn = document.createElement('div');
+    btn.className = 'dest-btn';
+    btn.textContent = name.replace(/_/g, ' ');
+    btn.onclick = () => navigateTo(name);
+    btn.oncontextmenu = (e) => { e.preventDefault(); openEditLocation(name); };
+    btn.title = 'Click to navigate, right-click to edit';
+    btn.id = 'dest-' + name;
+    container.appendChild(btn);
+  }
+}
+
+function buildLegend() {
+  const legend = document.getElementById('mapLegend');
+  let html = '';
+  for (const name of Object.keys(locations)) {
+    html += `<div class="loc-item" onclick="navigateTo('${name}')"><span class="loc-dot"></span>${name.replace(/_/g, ' ')}</div>`;
+  }
+  legend.innerHTML = html;
+}
+
+function navigateTo(name) {
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'navigate_to', location: name }));
+  }
+}
+
+// ── WebSocket ──
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    updateStatusPill('connected');
+    // Restore deploy button state — check if deploy is still running
+    fetch('/api/deploy-status').then(r => r.json()).then(data => {
+      if (data.running) {
+        document.getElementById('deployBtn').disabled = true;
+        document.getElementById('deployStopBtn').disabled = false;
+        deploying = true;
+      }
+    }).catch(() => {});
+  };
+  ws.onclose = () => { updateStatusPill('disconnected'); setTimeout(connectWS, 3000); };
+  ws.onerror = () => {};
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    handleMessage(msg);
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'init':
+      demoMode = msg.demo_mode;
+      updateStatusPill(demoMode ? 'demo' : 'connected');
+      break;
+
+    case 'pose':
+      robotPose = { px: msg.px, py: msg.py, theta: msg.theta, x: msg.x, y: msg.y };
+      document.getElementById('sysPose').textContent = `(${msg.x.toFixed(2)}, ${msg.y.toFixed(2)})`;
+      document.getElementById('sysPose').className = 'sys-val good';
+      const covEl = document.getElementById('sysCov');
+      covEl.textContent = msg.cov.toFixed(4);
+      covEl.className = 'sys-val ' + (msg.cov < 0.5 ? 'good' : msg.cov < 1.0 ? 'warn' : 'bad');
+      document.getElementById('locPill').textContent = 'LOC ' + msg.cov.toFixed(2);
+      document.getElementById('locPill').className = 'pill ' + (msg.cov < 1.0 ? 'ok' : 'error');
+      break;
+
+    case 'command_sent':
+      addChat('user', msg.text);
+      break;
+
+    case 'robot_reply':
+      addChat('robot', msg.text);
+      break;
+
+    case 'tool_cmd':
+      addChat('tool', `${msg.tool}(${JSON.stringify(msg.input)})`);
+      if (msg.tool === 'navigate_to') {
+        const target = msg.input.location_name || '';
+        showNavProgress(target);
+        highlightDest(target);
+      }
+      break;
+
+    case 'tool_result':
+      const d = msg.data;
+      if (d.status === 'arrived') {
+        addChat('system', `Arrived at ${d.target}`);
+        hideNavProgress();
+        highlightDest(d.target, true);
+      } else if (d.status === 'failed' || d.status === 'rejected') {
+        addChat('system', `Failed: ${d.error || d.status}`);
+        hideNavProgress();
+      }
+      break;
+
+    case 'nav_progress':
+      const np = msg.data;
+      const pct = navStartDist > 0 ? Math.max(0, 100 * (1 - np.distance_remaining_m / navStartDist)) : 50;
+      document.getElementById('navFill').style.width = pct + '%';
+      document.getElementById('navLabel').textContent =
+        `Navigating to ${np.target} — ${np.distance_remaining_m}m remaining (${np.elapsed_s}s)`;
+      break;
+
+    case 'system_status':
+      const ss = msg.data;
+      const navEl = document.getElementById('sysNav');
+      navEl.textContent = ss.navigation_active ? 'active' : 'idle';
+      navEl.className = 'sys-val ' + (ss.navigation_active ? 'warn' : 'good');
+      const sp = document.getElementById('statusPill');
+      sp.textContent = ss.status.toUpperCase();
+      sp.className = 'pill ' + ss.status;
+      break;
+
+    case 'deploy_log':
+      appendDeployLog(msg.level, msg.text);
+      break;
+
+    case 'battery':
+      handleBattery(msg);
+      break;
+
+    case 'topic_health':
+      handleTopicHealth(msg.data);
+      break;
+
+    case 'system':
+      addChat('system', msg.text);
+      if (msg.text && msg.text.includes('[preflight]')) {
+        appendPreflightLog(msg.text);
+      }
+      break;
+  }
+}
+
+function updateStatusPill(state) {
+  const pill = document.getElementById('statusPill');
+  if (state === 'connected') { pill.textContent = 'CONNECTED'; pill.className = 'pill ok'; }
+  else if (state === 'demo') { pill.textContent = 'DEMO'; pill.className = 'pill demo'; }
+  else if (state === 'disconnected') { pill.textContent = 'OFFLINE'; pill.className = 'pill error'; }
+}
+
+// ── Chat ──
+function addChat(type, text) {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = 'msg ' + type;
+  const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const textSpan = document.createElement('span');
+  textSpan.textContent = text;
+  const timeDiv = document.createElement('div');
+  timeDiv.className = 'time';
+  timeDiv.textContent = now;
+  div.appendChild(textSpan);
+  div.appendChild(timeDiv);
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+  // Trim
+  while (area.children.length > 100) area.removeChild(area.firstChild);
+}
+
+// ── Voice input: toast helper ──
+function showToast(message) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  // CSS animation runs for 3s total, then remove from DOM
+  setTimeout(() => { toast.remove(); }, 3100);
+}
+
+// ── Voice input: waveform visualizer ──
+async function startWaveform() {
+  // Reuses getUserMedia stream if already obtained by startRecording.
+  // Caller (startRecording) passes the stream in via module state.
+  if (!mediaStream) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    const src = audioCtx.createMediaStreamSource(mediaStream);
+    src.connect(analyser);
+    drawWaveform();
+  } catch (e) {
+    console.warn('Waveform init failed:', e);
+    // Non-fatal: recording continues without visual feedback
+  }
+}
+
+function drawWaveform() {
+  const c = document.getElementById('waveformCanvas');
+  if (!c) return;
+  const cctx = c.getContext('2d');
+  const W = c.width = c.offsetWidth;
+  const H = c.height = c.offsetHeight;
+
+  const bufLen = analyser ? analyser.frequencyBinCount : 128;
+  const data = new Uint8Array(bufLen);
+
+  function frame() {
+    rafId = requestAnimationFrame(frame);
+    if (analyser) analyser.getByteTimeDomainData(data);
+
+    cctx.clearRect(0, 0, W, H);
+
+    // Background gradient (cyan at center, fade at edges)
+    const grad = cctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.3, 'rgba(0,212,255,0.06)');
+    grad.addColorStop(0.7, 'rgba(0,212,255,0.06)');
+    grad.addColorStop(1, 'transparent');
+    cctx.fillStyle = grad;
+    cctx.fillRect(0, 0, W, H);
+
+    // Waveform line
+    cctx.beginPath();
+    cctx.strokeStyle = '#00d4ff';
+    cctx.lineWidth = 2;
+    cctx.shadowBlur = 6;
+    cctx.shadowColor = '#00d4ff';
+
+    const sliceW = W / bufLen;
+    let x = 0;
+    for (let i = 0; i < bufLen; i++) {
+      const v = analyser ? (data[i] / 128.0) : (Math.sin((Date.now() / 600) + i * 0.2) * 0.08 + 1);
+      const y = (v * H / 2);
+      i === 0 ? cctx.moveTo(x, y) : cctx.lineTo(x, y);
+      x += sliceW;
+    }
+    cctx.stroke();
+  }
+  frame();
+}
+
+function stopWaveform() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (audioCtx) {
+    try { audioCtx.close(); } catch (e) {}
+    audioCtx = null;
+  }
+  analyser = null;
+}
+
+// ── Voice input: centralized idempotent cleanup ──
+// Every exit path from RECORDING state funnels through here.
+// Safe to call multiple times — race-condition re-entry is a no-op.
+
+// Version that preserves transcript — used by onend/onerror when recognition
+// ended naturally and we need to read the transcript AFTER swapping DOM.
+function transitionToIdleKeepTranscript() {
+  if (!isRecording) return;
+  isRecording = false;
+
+  // Do NOT abort — recognition already ended naturally
+  recognition = null;
+
+  stopWaveform();
+
+  if (mediaStream) {
+    try { mediaStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+    mediaStream = null;
+  }
+
+  // Swap DOM back to idle row (do NOT clear transcript — caller reads it after)
+  const inputRow = document.getElementById('inputRow');
+  const recordingRow = document.getElementById('recordingRow');
+  if (inputRow) inputRow.style.display = 'flex';
+  if (recordingRow) recordingRow.style.display = 'none';
+}
+
+// Full cleanup — used by cancel and other forced exits.
+function transitionToIdle() {
+  if (!isRecording) return;       // idempotent guard
+  isRecording = false;             // flip state flag first
+
+  // Abort recognition (triggers onerror('aborted') → silent path)
+  if (recognition) {
+    try { recognition.abort(); } catch (e) {}
+    recognition = null;  // force fresh instance on next session
+  }
+
+  // Stop waveform rendering + close AudioContext
+  stopWaveform();
+
+  // Release the microphone
+  if (mediaStream) {
+    try { mediaStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+    mediaStream = null;
+  }
+
+  // Clear accumulated transcript (it has been consumed by the caller if needed)
+  finalTranscript = '';
+  interimTranscript = '';
+
+  // Swap DOM back to idle row
+  const inputRow = document.getElementById('inputRow');
+  const recordingRow = document.getElementById('recordingRow');
+  if (inputRow) inputRow.style.display = 'flex';
+  if (recordingRow) recordingRow.style.display = 'none';
+}
+
+// ── Voice input: map recognition error codes to user-friendly messages ──
+function errorMessageFor(code) {
+  switch (code) {
+    case 'network':       return 'Speech service unreachable. Check your internet.';
+    case 'not-allowed':   return 'Microphone access denied.';
+    case 'audio-capture': return 'Microphone disconnected.';
+    case 'service-not-allowed': return 'Speech service blocked by browser.';
+    default:              return 'Voice input error: ' + code;
+  }
+}
+
+// ── Voice input: lazy-create the SpeechRecognition instance ──
+function initRecognition() {
+  if (recognition) return recognition;  // already initialized
+  if (!SpeechRec) return null;
+
+  const r = new SpeechRec();
+  r.continuous = false;
+  r.lang = 'en-US';
+  r.interimResults = true;   // kept true to match reference; only isFinal results are consumed
+  r.maxAlternatives = 1;
+
+  r.onresult = (event) => {
+    interimTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript;
+      } else {
+        interimTranscript += event.results[i][0].transcript;
+      }
+    }
+    // Show live preview in the recording row (visible during recording)
+    const preview = (finalTranscript + interimTranscript).trim();
+    console.log('[voice] onresult:', preview, 'isFinal:', event.results[event.results.length-1].isFinal);
+    const recLabel = document.querySelector('.waveform-container');
+    if (recLabel && preview) {
+      recLabel.title = preview;  // tooltip shows transcript
+    }
+  };
+
+  r.onend = () => {
+    console.log('[voice] onend, isRecording:', isRecording, 'final:', finalTranscript, 'interim:', interimTranscript);
+    // Race guard: if already cancelled, don't touch the input
+    if (!isRecording) return;
+    const text = (finalTranscript + ' ' + interimTranscript).trim() || finalTranscript.trim() || interimTranscript.trim();
+    // Transition back to idle FIRST so input row is visible
+    transitionToIdleKeepTranscript();
+    // THEN set the input value (inputRow is now visible)
+    if (text) {
+      document.getElementById('cmdInput').value = text;
+      document.getElementById('cmdInput').focus();
+    }
+  };
+
+  r.onerror = (event) => {
+    console.log('[voice] onerror:', event.error, 'isRecording:', isRecording);
+    // Expected/silent codes: do not show a toast
+    const silentCodes = ['no-speech', 'aborted'];
+    if (!silentCodes.includes(event.error)) {
+      showToast(errorMessageFor(event.error));
+    }
+    // 'no-speech' on auto-stop: still keep any partial transcript
+    if (event.error === 'no-speech' && isRecording) {
+      const text = (finalTranscript || interimTranscript).trim();
+      transitionToIdleKeepTranscript();
+      if (text) {
+        document.getElementById('cmdInput').value = text;
+        document.getElementById('cmdInput').focus();
+      }
+      return;
+    }
+    transitionToIdle();
+  };
+
+  recognition = r;
+  return r;
+}
+
+// ── Voice input: start the recording flow ──
+async function startRecording() {
+  if (isRecording) return;  // guard against double-click
+  if (!SpeechRec) {
+    showToast('Voice input not supported in this browser');
+    return;
+  }
+
+  // Reset transcript buffer defensively
+  finalTranscript = '';
+  interimTranscript = '';
+
+  // Acquire microphone FIRST — if this fails, show toast and stay idle
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    if (err.name === 'NotAllowedError') {
+      showToast('Microphone access denied');
+    } else if (err.name === 'NotFoundError') {
+      showToast('No microphone found');
+    } else {
+      showToast('Microphone unavailable');
+    }
+    return;
+  }
+
+  // Flip state and swap DOM
+  isRecording = true;
+  document.getElementById('inputRow').style.display = 'none';
+  document.getElementById('recordingRow').style.display = 'flex';
+
+  // Start waveform visualizer (uses module-level mediaStream)
+  await startWaveform();
+
+  // Start speech recognition
+  const r = initRecognition();
+  try {
+    r.start();
+  } catch (e) {
+    console.warn('recognition.start() failed:', e);
+    showToast('Could not start voice recognition');
+    transitionToIdle();
+  }
+}
+
+// ── Voice input: cancel flow (discards transcript) ──
+// transitionToIdle() already calls recognition.abort() which triggers
+// onerror('aborted') on the silent path. No need to duplicate here.
+function cancelRecording() {
+  transitionToIdle();
+}
+
+function sendCommand() {
+  const input = document.getElementById('cmdInput');
+  const text = input.value.trim();
+  if (!text || !ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({ type: 'command', text }));
+  input.value = '';
+}
+
+// ── Nav progress ──
+function showNavProgress(target) {
+  // Estimate initial distance from robot to target
+  const loc = locations[target];
+  if (loc) {
+    navStartDist = Math.hypot(loc.x - robotPose.x, loc.y - robotPose.y);
+  } else {
+    navStartDist = 5;
+  }
+  document.getElementById('navBar').className = 'nav-bar active';
+  document.getElementById('navLabel').textContent = `Navigating to ${target}...`;
+  document.getElementById('navFill').style.width = '5%';
+}
+
+function hideNavProgress() {
+  document.getElementById('navFill').style.width = '100%';
+  setTimeout(() => {
+    document.getElementById('navBar').className = 'nav-bar';
+  }, 2000);
+}
+
+function highlightDest(name, arrived = false) {
+  document.querySelectorAll('.dest-btn').forEach(b => b.classList.remove('active'));
+  const normalized = name.replace(/\s+/g, '_');
+  const btn = document.getElementById('dest-' + normalized);
+  if (btn && arrived) btn.classList.add('active');
+}
+
+// ── Pre-flight ──
+let preflightPassed = false;
+let preflightRunning = false;
+
+function runPreflight() {
+  if (preflightRunning) return;
+  preflightRunning = true;
+  preflightPassed = false;
+
+  const btn = document.getElementById('preflightBtn');
+  const summary = document.getElementById('preflightSummary');
+  const container = document.getElementById('preflightChecks');
+
+  clearPreflightLog();
+  hideOdomPolling();
+  btn.disabled = true;
+  btn.classList.add('running');
+  summary.className = 'preflight-summary running';
+  summary.textContent = 'Running checks...';
+
+  // Show placeholder checks
+  const checkNames = [
+    {id: 'rpi_ping', name: 'RPi Reachable'},
+    {id: 'clock_sync', name: 'Clock Sync'},
+    {id: 'discovery_server', name: 'Discovery Server'},
+    {id: 'odom_topic', name: 'Odom Publishing'},
+    {id: 'ros2_daemon', name: 'ROS2 Daemon'},
+  ];
+  container.innerHTML = checkNames.map(c =>
+    `<div class="pf-check running" id="pf-${c.id}">` +
+    `<span class="pf-icon">&#8987;</span>` +
+    `<span class="pf-name">${c.name}</span>` +
+    `<span class="pf-detail">checking...</span></div>`
+  ).join('');
+  container.classList.add('visible');
+
+  fetch('/api/preflight', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      preflightRunning = false;
+      btn.disabled = false;
+      btn.classList.remove('running');
+
+      if (!data.ok) {
+        summary.className = 'preflight-summary fail';
+        summary.textContent = 'Error running checks';
+        return;
+      }
+
+      const icons = { pass: '&#10003;', fail: '&#10007;', warn: '&#9888;', skip: '&#8212;' };
+      const fixLabels = {
+        restart_discovery: 'Fix: Restart Discovery Server',
+        restart_turtlebot4: 'Fix: Restart TB4 Service',
+        restart_create3_app: 'Fix: Restart Create3 (auto-escalates)',
+        full_recovery: 'Fix: Full Recovery Chain',
+        restart_ros2_daemon: 'Fix: Restart ROS2 Daemon',
+      };
+
+      // Update each check
+      data.checks.forEach(c => {
+        const el = document.getElementById('pf-' + c.id);
+        if (el) {
+          el.className = 'pf-check ' + c.status;
+          el.querySelector('.pf-icon').innerHTML = icons[c.status] || '?';
+          el.querySelector('.pf-detail').textContent = c.detail;
+          // Remove old fix button if any
+          const oldBtn = el.querySelector('.pf-fix');
+          if (oldBtn) oldBtn.remove();
+          // Add fix button only for failed checks with a known fix
+          if (c.fix && c.status === 'fail') {
+            const fixBtn = document.createElement('button');
+            fixBtn.className = 'pf-fix';
+            fixBtn.textContent = fixLabels[c.fix] || 'Fix';
+            fixBtn.onclick = () => runPreflightFix(c.fix, fixBtn);
+            el.appendChild(fixBtn);
+          }
+        }
+      });
+
+      // Summary
+      if (data.deploy_blocked) {
+        summary.className = 'preflight-summary fail';
+        summary.textContent = 'BLOCKED — fix critical issues before deploy';
+        preflightPassed = false;
+      } else if (data.all_passed) {
+        summary.className = 'preflight-summary pass';
+        summary.textContent = 'ALL PASSED — ready to deploy';
+        preflightPassed = true;
+      } else {
+        summary.className = 'preflight-summary warn';
+        summary.textContent = 'WARNINGS — deploy allowed but review issues';
+        preflightPassed = true;
+      }
+    })
+    .catch(err => {
+      preflightRunning = false;
+      btn.disabled = false;
+      btn.classList.remove('running');
+      summary.className = 'preflight-summary fail';
+      summary.textContent = 'Connection error: ' + err.message;
+    });
+}
+
+// ── Pre-flight Fix Log ──
+function appendPreflightLog(text) {
+  const log = document.getElementById('preflightLog');
+  if (!log) return;
+  log.classList.add('visible');
+  const line = document.createElement('div');
+  line.className = 'pf-log-line';
+  // Strip the [preflight] prefix for cleaner display
+  const clean = text.replace('[preflight] ', '');
+  if (clean.startsWith('Step')) line.className += ' step';
+  else if (clean.includes('verified') || clean.includes('back') || clean.includes('complete')) line.className += ' ok';
+  else if (clean.includes('failed') || clean.includes('NOT') || clean.includes('Error')) line.className += ' err';
+  line.textContent = clean;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearPreflightLog() {
+  const log = document.getElementById('preflightLog');
+  if (!log) return;
+  log.innerHTML = '';
+  log.classList.remove('visible');
+}
+
+// ── Odom Active Polling ──
+// Polls /api/odom-status at 10s intervals (RPi SSH check takes ~12s when down).
+// After 90s without odom, shows escalation button for full_recovery.
+let _odomPollInterval = null;
+let _odomPollStart = null;
+let _odomPollBusy = false;  // Prevent overlapping requests
+
+const ODOM_POLL_INTERVAL = 10000;  // 10s — RPi SSH check takes up to 12s
+const ODOM_POLL_TIMEOUT = 90000;   // 90s before suggesting escalation
+
+function startOdomPolling() {
+  if (_odomPollInterval) return;
+  _odomPollStart = Date.now();
+  _odomPollBusy = false;
+  const el = document.getElementById('odomPollStatus');
+  const dot = document.getElementById('odomPollDot');
+  const text = document.getElementById('odomPollText');
+  const timer = document.getElementById('odomPollTimer');
+  el.classList.add('visible');
+  dot.className = 'odom-poll-dot checking';
+  text.textContent = 'Polling odom status...';
+  // Remove any old escalation button
+  const oldEsc = el.querySelector('.odom-escalate-btn');
+  if (oldEsc) oldEsc.remove();
+
+  function poll() {
+    if (_odomPollBusy) return;  // Skip if previous request still pending
+    _odomPollBusy = true;
+    const elapsed = Math.round((Date.now() - _odomPollStart) / 1000);
+    timer.textContent = elapsed + 's';
+    dot.className = 'odom-poll-dot checking';
+
+    fetch('/api/odom-status')
+      .then(r => r.json())
+      .then(data => {
+        _odomPollBusy = false;
+        const elapsed = Math.round((Date.now() - _odomPollStart) / 1000);
+        timer.textContent = elapsed + 's';
+
+        if (data.publishing) {
+          // Odom is back!
+          dot.className = 'odom-poll-dot ok';
+          text.textContent = 'Odom ACTIVE: ' + data.detail;
+          const oldEsc = el.querySelector('.odom-escalate-btn');
+          if (oldEsc) oldEsc.remove();
+          // Update preflight odom row
+          const odomRow = document.getElementById('pf-odom_topic');
+          if (odomRow) {
+            odomRow.className = 'pf-check pass';
+            odomRow.querySelector('.pf-icon').innerHTML = '&#10003;';
+            odomRow.querySelector('.pf-detail').textContent = data.detail;
+            const oldFix = odomRow.querySelector('.pf-fix');
+            if (oldFix) oldFix.remove();
+          }
+          const summaryEl = document.getElementById('preflightSummary');
+          if (summaryEl) {
+            summaryEl.className = 'preflight-summary pass';
+            summaryEl.textContent = 'Odom recovered (' + elapsed + 's) — re-run checks to verify all';
+          }
+          stopOdomPolling();
+        } else {
+          text.textContent = 'Waiting for odom: ' + data.detail;
+          // Update preflight odom row with live status
+          const odomRow = document.getElementById('pf-odom_topic');
+          if (odomRow) {
+            odomRow.className = 'pf-check running';
+            odomRow.querySelector('.pf-icon').innerHTML = '&#8987;';
+            odomRow.querySelector('.pf-detail').textContent = data.detail + ' (' + elapsed + 's)';
+          }
+
+          // After timeout: show escalation option
+          if (Date.now() - _odomPollStart > ODOM_POLL_TIMEOUT && !el.querySelector('.odom-escalate-btn')) {
+            dot.className = 'odom-poll-dot fail';
+            text.textContent = 'Odom not recovered after ' + elapsed + 's — app restart may not be enough';
+            const escBtn = document.createElement('button');
+            escBtn.className = 'odom-escalate-btn';
+            escBtn.textContent = 'Escalate: Full Recovery';
+            escBtn.style.cssText = 'background:#2e0a1a;border:1px solid #4a1a2a;border-radius:4px;padding:3px 10px;font-size:10px;color:#ff6688;cursor:pointer;font-weight:600;margin-left:8px;white-space:nowrap;';
+            escBtn.onmouseenter = () => { escBtn.style.background = '#3d0d20'; };
+            escBtn.onmouseleave = () => { escBtn.style.background = '#2e0a1a'; };
+            escBtn.onclick = () => {
+              if (confirm('App restart did not restore odom.\n\nRun full recovery? (Reboot Create3 + restart services + verify odom)\nThis takes ~3-4 minutes.')) {
+                stopOdomPolling();
+                const summary = document.getElementById('preflightSummary');
+                summary.className = 'preflight-summary running';
+                summary.textContent = 'Full recovery in progress...';
+                // Find or create a fix button to pass to runPreflightFix
+                let fixBtn = document.querySelector('.pf-fix');
+                if (!fixBtn) {
+                  fixBtn = escBtn;
+                }
+                _fixRunning = false;  // Reset so runPreflightFix accepts the call
+                runPreflightFix('full_recovery', fixBtn);
+              }
+            };
+            el.appendChild(escBtn);
+            // Update summary
+            const summaryEl = document.getElementById('preflightSummary');
+            if (summaryEl) {
+              summaryEl.className = 'preflight-summary fail';
+              summaryEl.textContent = 'Odom not recovered — escalate to full recovery';
+            }
+          }
+        }
+      })
+      .catch(() => {
+        _odomPollBusy = false;
+        text.textContent = 'Poll error — retrying...';
+      });
+  }
+
+  // First poll after short delay (give restart command time to send)
+  setTimeout(poll, 3000);
+  _odomPollInterval = setInterval(poll, ODOM_POLL_INTERVAL);
+}
+
+function stopOdomPolling() {
+  if (_odomPollInterval) {
+    clearInterval(_odomPollInterval);
+    _odomPollInterval = null;
+  }
+  _odomPollBusy = false;
+}
+
+function hideOdomPolling() {
+  stopOdomPolling();
+  const el = document.getElementById('odomPollStatus');
+  if (el) {
+    el.classList.remove('visible');
+    const oldEsc = el.querySelector('.odom-escalate-btn');
+    if (oldEsc) oldEsc.remove();
+  }
+}
+
+// ── Pre-flight Fix Actions ──
+let _fixRunning = false;
+
+function _setAllFixButtons(disabled) {
+  document.querySelectorAll('.pf-fix').forEach(b => { b.disabled = disabled; });
+}
+
+function _resetFixButton(btn, origText) {
+  btn.classList.remove('fixing');
+  btn.textContent = origText;
+  btn.style.color = '';
+  btn.style.borderColor = '';
+  btn.disabled = false;
+}
+
+function runPreflightFix(action, btn) {
+  if (_fixRunning && !['full_recovery', 'restart_discovery', 'restart_create3_app', 'restart_turtlebot4'].includes(action)) return;
+  // Clear log for top-level fix actions (not chained calls)
+  if (!_fixRunning) clearPreflightLog();
+  _fixRunning = true;
+
+  // Start odom polling for any fix that could affect odom
+  if (['restart_create3_app', 'full_recovery', 'restart_turtlebot4'].includes(action)) {
+    startOdomPolling();
+  }
+
+  // Disable all fix buttons to prevent race conditions
+  _setAllFixButtons(true);
+  btn.classList.add('fixing');
+  const origText = btn.textContent;
+  btn.textContent = 'Fixing...';
+
+  const summary = document.getElementById('preflightSummary');
+
+  fetch('/api/preflight/fix/' + action, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      btn.classList.remove('fixing');
+      _fixRunning = false;
+
+      if (data.ok) {
+        // Active polling mode: restart sent, frontend polls odom status
+        if (data.pending_odom) {
+          btn.textContent = 'Restart sent — polling odom...';
+          btn.style.color = '#aa88ff';
+          btn.style.borderColor = '#4a2a6a';
+          summary.className = 'preflight-summary running';
+          summary.textContent = 'Restart sent — active odom polling in progress';
+          // Ensure odom polling is running
+          startOdomPolling();
+          _setAllFixButtons(false);
+          return;
+        }
+
+        btn.textContent = data.message || 'Fixed!';
+        btn.style.color = '#00ff88';
+        btn.style.borderColor = '#1a3a2a';
+
+        // Chain fix: escalate to full recovery when needed
+        if (data.chain_fix === 'full_recovery') {
+          const reason = data.message || 'Previous fix succeeded but full recovery needed';
+          if (confirm(reason + '\n\nRun full recovery? (Reboot Create3 → restart services → verify odom)\nThis takes ~3-4 minutes.')) {
+            _fixRunning = true;
+            _setAllFixButtons(true);
+            summary.className = 'preflight-summary running';
+            summary.textContent = 'Full recovery in progress...';
+            btn.textContent = 'Recovery running...';
+            btn.classList.add('fixing');
+            runPreflightFix('full_recovery', btn);
+            return;
+          } else {
+            summary.className = 'preflight-summary warn';
+            summary.textContent = 'Discovery Server fixed — re-run checks to verify';
+            _setAllFixButtons(false);
+          }
+        } else if (data.chain_fix) {
+          _fixRunning = true;
+          _setAllFixButtons(true);
+          runPreflightFix(data.chain_fix, btn);
+          return;
+        } else {
+          summary.className = 'preflight-summary warn';
+          summary.textContent = 'Fixed — re-run checks to verify';
+          _setAllFixButtons(false);
+          // Keep odom polling visible if odom is still not confirmed
+        }
+      } else {
+        // Check if failed fix suggests escalation via chain_fix
+        if (data.chain_fix === 'full_recovery') {
+          summary.className = 'preflight-summary fail';
+          summary.textContent = data.error || 'Fix failed';
+          if (confirm((data.error || 'Fix failed') + '\n\nRun full recovery? (Reboot Create3 → restart services → verify odom)\nThis takes ~3-4 minutes.')) {
+            _fixRunning = true;
+            _setAllFixButtons(true);
+            summary.className = 'preflight-summary running';
+            summary.textContent = 'Full recovery in progress...';
+            btn.textContent = 'Recovery running...';
+            btn.classList.add('fixing');
+            runPreflightFix('full_recovery', btn);
+            return;
+          } else {
+            _setAllFixButtons(false);
+          }
+        } else if (data.chain_fix) {
+          summary.className = 'preflight-summary warn';
+          summary.textContent = data.error || 'Escalating...';
+          _fixRunning = true;
+          _setAllFixButtons(true);
+          runPreflightFix(data.chain_fix, btn);
+          return;
+        } else {
+          summary.className = 'preflight-summary fail';
+          summary.textContent = data.error || 'Fix failed';
+          // Stop odom polling on terminal failure (no chain)
+          setTimeout(() => {
+            stopOdomPolling();
+            _resetFixButton(btn, origText);
+            _setAllFixButtons(false);
+          }, 3000);
+        }
+      }
+    })
+    .catch(err => {
+      btn.classList.remove('fixing');
+      _fixRunning = false;
+      stopOdomPolling();
+      summary.className = 'preflight-summary fail';
+      summary.textContent = 'Connection error: ' + err.message;
+      setTimeout(() => { _resetFixButton(btn, origText); _setAllFixButtons(false); }, 3000);
+    });
+}
+
+// ── Deploy ──
+let deploying = false;
+let setPoseMode = false;
+
+function startDeploy() {
+  if (!preflightPassed) {
+    if (!confirm('Pre-flight checks have not passed.\nRun checks first, or click OK to deploy anyway.')) return;
+  }
+  const pose = document.getElementById('deployPose').value;
+  const skipBuild = document.getElementById('skipBuild').checked;
+  const skipClock = document.getElementById('skipClock').checked;
+  const msg = JSON.stringify({
+    type: 'deploy_start',
+    pose,
+    skip_build: skipBuild,
+    skip_clock: skipClock,
+  });
+
+  // Update UI immediately
+  deploying = true;
+  document.getElementById('deployBtn').disabled = true;
+  const log = document.getElementById('deployLog');
+  log.innerHTML = '';
+  log.classList.add('visible');
+
+  if (ws && ws.readyState === 1) {
+    ws.send(msg);
+  } else {
+    appendDeployLog('warn', 'WebSocket disconnected — reconnecting...');
+    connectWS();
+    setTimeout(() => {
+      if (ws && ws.readyState === 1) ws.send(msg);
+      else appendDeployLog('error', 'Could not connect to server');
+    }, 2000);
+  }
+}
+
+function stopDeploy() {
+  // Try WebSocket first, HTTP fallback
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'deploy_stop' }));
+  }
+  // Also send via HTTP POST as reliable fallback (WebSocket may be down)
+  fetch('/api/deploy-stop', { method: 'POST' }).catch(() => {});
+  // Immediately update UI
+  deploying = false;
+  document.getElementById('deployBtn').disabled = false;
+}
+
+function copyDeployLog() {
+  const log = document.getElementById('deployLog');
+  const lines = Array.from(log.children).map(el => el.textContent);
+  const text = lines.join('\n');
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyLogBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy Log'; }, 1500);
+  }).catch(() => {});
+}
+
+function appendDeployLog(level, text) {
+  const log = document.getElementById('deployLog');
+  log.classList.add('visible');
+  const line = document.createElement('div');
+  line.className = 'dlog-' + level;
+  line.textContent = text;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+  // Trim to 200 lines
+  while (log.children.length > 200) log.removeChild(log.firstChild);
+
+  if (level === 'done' || level === 'error') {
+    deploying = false;
+    document.getElementById('deployBtn').disabled = false;
+  }
+}
+
+// ── Dock/Undock ──
+function dockAction(action) {
+  addChat('system', action === 'undock' ? 'Undocking from charging station...' : 'Docking...');
+  fetch('/api/' + action, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      addChat('system', data.ok ? data.message : 'Error: ' + (data.error || 'Failed'));
+    })
+    .catch(err => addChat('system', 'Error: ' + err.message));
+}
+
+// ── Robot Commands ──
+function sendRosCommand(cmd) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'command', text: cmd }));
+  }
+}
+
+// ── Create3 Management ──
+function create3Action(action) {
+  const status = document.getElementById('create3Status');
+  status.className = 'create3-status';
+  status.textContent = action === 'sync-clock' ? 'Syncing clock...' :
+                       action === 'restart-app' ? 'Restarting application...' :
+                       'Rebooting...';
+  fetch('/api/create3/' + action, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        status.className = 'create3-status ok';
+        status.textContent = data.message || 'Success';
+        if (action !== 'sync-clock') {
+          status.textContent += ' — wait 30-60s for topics to return';
+        }
+      } else {
+        status.className = 'create3-status err';
+        status.textContent = data.error || 'Failed';
+      }
+    })
+    .catch(err => {
+      status.className = 'create3-status err';
+      status.textContent = 'Connection error: ' + err.message;
+    });
+}
+
+// ── Set Pose (click on map) ──
+function toggleSetPose() {
+  setPoseMode = !setPoseMode;
+  const panel = document.querySelector('.map-panel');
+  const hint = document.getElementById('setPoseHint');
+  const btn = document.getElementById('setPoseBtn');
+
+  if (setPoseMode) {
+    panel.classList.add('set-pose');
+    hint.classList.add('visible');
+    btn.style.borderColor = '#ff9500';
+    btn.style.color = '#ff9500';
+  } else {
+    cancelSetPose();
+  }
+}
+
+function cancelSetPose() {
+  setPoseMode = false;
+  document.querySelector('.map-panel').classList.remove('set-pose');
+  document.getElementById('setPoseHint').classList.remove('visible');
+  const btn = document.getElementById('setPoseBtn');
+  btn.style.borderColor = '';
+  btn.style.color = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && setPoseMode) cancelSetPose();
+  if (e.key === 'Escape' && addLocMode) cancelAddLocation();
+});
+
+// ── Add Location (click on map) ──
+let addLocMode = false;
+let _addLocX = 0, _addLocY = 0;
+
+function toggleAddLocation() {
+  addLocMode = !addLocMode;
+  const hint = document.getElementById('addLocHint');
+  const btn = document.getElementById('addLocBtn');
+  if (addLocMode) {
+    if (setPoseMode) cancelSetPose();
+    hint.classList.add('visible');
+    btn.style.borderColor = '#00ff88';
+    btn.style.background = '#1a3a2a';
+  } else {
+    cancelAddLocation();
+  }
+}
+
+function cancelAddLocation() {
+  addLocMode = false;
+  document.getElementById('addLocHint').classList.remove('visible');
+  document.getElementById('addLocDialog').classList.remove('visible');
+  document.getElementById('addLocOverlay').classList.remove('visible');
+  const btn = document.getElementById('addLocBtn');
+  btn.style.borderColor = '';
+  btn.style.background = '';
+}
+
+function showAddLocationDialog(wx, wy) {
+  _addLocX = wx;
+  _addLocY = wy;
+  addLocMode = false;
+  document.getElementById('addLocHint').classList.remove('visible');
+  const btn = document.getElementById('addLocBtn');
+  btn.style.borderColor = '';
+  btn.style.background = '';
+
+  document.getElementById('addLocCoords').textContent = `x: ${wx.toFixed(3)}, y: ${wy.toFixed(3)}`;
+  document.getElementById('addLocName').value = '';
+  document.getElementById('addLocDesc').value = '';
+  document.getElementById('addLocAliases').value = '';
+  document.getElementById('addLocArea').value = '';
+  document.getElementById('addLocStatus').textContent = '';
+  document.getElementById('addLocDialog').classList.add('visible');
+  document.getElementById('addLocOverlay').classList.add('visible');
+  document.getElementById('addLocName').focus();
+}
+
+function saveNewLocation() {
+  const name = document.getElementById('addLocName').value.trim().replace(/\s+/g, '_').toLowerCase();
+  const desc = document.getElementById('addLocDesc').value.trim();
+  const aliasStr = document.getElementById('addLocAliases').value.trim();
+  const facing = parseFloat(document.getElementById('addLocFacing').value);
+  const area = document.getElementById('addLocArea').value.trim();
+  const status = document.getElementById('addLocStatus');
+
+  if (!name) { status.textContent = 'Name is required'; status.style.color = '#ff4466'; return; }
+  if (locations[name]) { status.textContent = 'Location already exists'; status.style.color = '#ff4466'; return; }
+
+  const aliases = aliasStr ? aliasStr.split(',').map(a => a.trim()).filter(Boolean) : [];
+
+  status.textContent = 'Saving...';
+  status.style.color = '#aa88ff';
+
+  fetch('/api/locations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name, x: _addLocX, y: _addLocY, facing_deg: facing,
+      description: desc, aliases, area,
+    }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        status.textContent = 'Saved!';
+        status.style.color = '#00ff88';
+        // Add to local state and rebuild UI
+        const px_py = worldToPixel(_addLocX, _addLocY);
+        locations[name] = { x: _addLocX, y: _addLocY, px: px_py.px, py: px_py.py, facing_deg: facing, description: desc, aliases };
+        buildDestButtons();
+        buildLegend();
+        drawMap();
+        setTimeout(cancelAddLocation, 800);
+      } else {
+        status.style.color = '#ff4466';
+        if (data.suggestion) {
+          status.innerHTML = (data.error || 'Invalid position') +
+            `<br><button onclick="_useSuggestion(${data.suggestion.x}, ${data.suggestion.y}, 'add')" style="margin-top:4px; background:#0a2e1a; border:1px solid #1a3a2a; border-radius:4px; padding:2px 8px; color:#00ff88; cursor:pointer; font-size:10px;">Use suggested position</button>`;
+        } else {
+          status.textContent = data.error || 'Save failed';
+        }
+      }
+    })
+    .catch(err => { status.textContent = 'Error: ' + err.message; status.style.color = '#ff4466'; });
+}
+
+function _useSuggestion(sx, sy, mode) {
+  if (mode === 'add') {
+    _addLocX = sx;
+    _addLocY = sy;
+    document.getElementById('addLocCoords').textContent = `x: ${sx.toFixed(3)}, y: ${sy.toFixed(3)}`;
+    document.getElementById('addLocCoords').style.color = '#ff9500';
+    document.getElementById('addLocStatus').textContent = 'Position updated — click Save to confirm';
+    document.getElementById('addLocStatus').style.color = '#ff9500';
+  } else {
+    _editLocX = sx;
+    _editLocY = sy;
+    document.getElementById('editLocCoords').textContent = `x: ${sx.toFixed(3)}, y: ${sy.toFixed(3)}`;
+    document.getElementById('editLocCoords').style.color = '#ff9500';
+    document.getElementById('editLocStatus').textContent = 'Position updated — click Save to confirm';
+    document.getElementById('editLocStatus').style.color = '#ff9500';
+  }
+}
+
+// ── Edit Location ──
+let _editLocName = '';
+let _editLocX = 0, _editLocY = 0;
+let editLocReposition = false;
+
+function openEditLocation(name) {
+  const loc = locations[name];
+  if (!loc) return;
+  _editLocName = name;
+  _editLocX = loc.x;
+  _editLocY = loc.y;
+  editLocReposition = false;
+
+  document.getElementById('editLocTitle').textContent = name.replace(/_/g, ' ');
+  document.getElementById('editLocCoords').textContent = `x: ${loc.x.toFixed(3)}, y: ${loc.y.toFixed(3)}`;
+  document.getElementById('editLocDesc').value = loc.description || '';
+  document.getElementById('editLocAliases').value = (loc.aliases || []).join(', ');
+  document.getElementById('editLocArea').value = loc.area || '';
+  document.getElementById('editLocStatus').textContent = '';
+
+  // Set facing select to nearest option
+  const facingSel = document.getElementById('editLocFacing');
+  const facing = loc.facing_deg || 0;
+  facingSel.value = [0, 90, 180, 270].reduce((a, b) => Math.abs(b - facing) < Math.abs(a - facing) ? b : a);
+
+  document.getElementById('editLocDialog').classList.add('visible');
+  document.getElementById('editLocOverlay').classList.add('visible');
+}
+
+function cancelEditLocation() {
+  editLocReposition = false;
+  document.getElementById('editLocDialog').classList.remove('visible');
+  document.getElementById('editLocOverlay').classList.remove('visible');
+}
+
+function saveEditLocation() {
+  const desc = document.getElementById('editLocDesc').value.trim();
+  const aliasStr = document.getElementById('editLocAliases').value.trim();
+  const facing = parseFloat(document.getElementById('editLocFacing').value);
+  const area = document.getElementById('editLocArea').value.trim();
+  const aliases = aliasStr ? aliasStr.split(',').map(a => a.trim()).filter(Boolean) : [];
+  const status = document.getElementById('editLocStatus');
+
+  status.textContent = 'Saving...';
+  status.style.color = '#aa88ff';
+
+  fetch('/api/locations/' + encodeURIComponent(_editLocName), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      x: _editLocX, y: _editLocY, facing_deg: facing,
+      description: desc, aliases, area,
+    }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        status.textContent = 'Saved!';
+        status.style.color = '#00ff88';
+        const px_py = worldToPixel(_editLocX, _editLocY);
+        locations[_editLocName] = { x: _editLocX, y: _editLocY, px: px_py.px, py: px_py.py, facing_deg: facing, description: desc, aliases, area };
+        buildLegend();
+        drawMap();
+        setTimeout(cancelEditLocation, 600);
+      } else {
+        status.style.color = '#ff4466';
+        if (data.suggestion) {
+          status.innerHTML = (data.error || 'Invalid position') +
+            `<br><button onclick="_useSuggestion(${data.suggestion.x}, ${data.suggestion.y}, 'edit')" style="margin-top:4px; background:#0a2e1a; border:1px solid #1a3a2a; border-radius:4px; padding:2px 8px; color:#00ff88; cursor:pointer; font-size:10px;">Use suggested position</button>`;
+        } else {
+          status.textContent = data.error || 'Save failed';
+        }
+      }
+    })
+    .catch(err => { status.textContent = 'Error: ' + err.message; status.style.color = '#ff4466'; });
+}
+
+function deleteLocation() {
+  if (!confirm(`Delete location "${_editLocName}"?`)) return;
+  const status = document.getElementById('editLocStatus');
+  status.textContent = 'Deleting...';
+  status.style.color = '#aa88ff';
+
+  fetch('/api/locations/' + encodeURIComponent(_editLocName), { method: 'DELETE' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        delete locations[_editLocName];
+        buildDestButtons();
+        buildLegend();
+        drawMap();
+        cancelEditLocation();
+      } else {
+        status.textContent = data.error || 'Delete failed';
+        status.style.color = '#ff4466';
+      }
+    })
+    .catch(err => { status.textContent = 'Error: ' + err.message; status.style.color = '#ff4466'; });
+}
+
+function worldToPixel(wx, wy) {
+  const px = (wx - mapInfo.map.origin_x) / mapInfo.map.resolution;
+  const py = mapInfo.map.height - (wy - mapInfo.map.origin_y) / mapInfo.map.resolution;
+  return { px, py };
+}
+
+// Set-pose mode is integrated into onMapClick (called after DOM load)
+
+// ── API Key ──
+async function loadApiKey() {
+  try {
+    const resp = await fetch('/api/apikey');
+    const data = await resp.json();
+    if (data.masked) {
+      document.getElementById('apiKeyInput').placeholder = data.masked;
+      setKeyStatus('ok', 'Key loaded');
+    }
+  } catch (e) {}
+}
+
+async function saveApiKey() {
+  const input = document.getElementById('apiKeyInput');
+  const key = input.value.trim();
+  if (!key) return;
+  try {
+    const resp = await fetch('/api/apikey', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      input.value = '';
+      input.placeholder = data.masked;
+      setKeyStatus('ok', 'Saved');
+    } else {
+      setKeyStatus('err', data.error || 'Save failed');
+    }
+  } catch (e) {
+    setKeyStatus('err', 'Network error');
+  }
+}
+
+function setKeyStatus(cls, text) {
+  const el = document.getElementById('apiKeyStatus');
+  el.className = 'apikey-status ' + cls;
+  el.textContent = text;
+  if (cls === 'ok') setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+function toggleKeyVisibility() {
+  const input = document.getElementById('apiKeyInput');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+// Load saved key on startup
+loadApiKey();
+
+// ── RPi Management ──
+function rpiAction(action) {
+  const status = document.getElementById('create3Status');
+  status.className = 'create3-status';
+  status.textContent = 'Restarting RPi ROS service...';
+  fetch('/api/rpi/' + action, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      status.className = data.ok ? 'create3-status ok' : 'create3-status err';
+      status.textContent = data.message || data.error || 'Done';
+    })
+    .catch(err => {
+      status.className = 'create3-status err';
+      status.textContent = 'Error: ' + err.message;
+    });
+}
+
+// ── Restart ROS2 Daemon ──
+function restartRos2Daemon() {
+  const status = document.getElementById('create3Status');
+  status.className = 'create3-status';
+  status.textContent = 'Restarting ROS2 daemon...';
+  fetch('/api/restart-ros2-daemon', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      status.className = data.ok ? 'create3-status ok' : 'create3-status err';
+      status.textContent = data.message || data.error || 'Done';
+    })
+    .catch(err => {
+      status.className = 'create3-status err';
+      status.textContent = 'Error: ' + err.message;
+    });
+}
+
+// ── Battery & Topic Health ──
+function handleBattery(msg) {
+  const el = document.getElementById('sysBattery');
+  const pct = msg.pct;
+  const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ff9500' : '#ff4466';
+  el.style.color = color;
+  el.textContent = pct + '% (' + msg.voltage + 'V)';
+}
+
+function handleTopicHealth(data) {
+  const el = document.getElementById('sysTopics');
+  const items = [];
+  for (const [k, v] of Object.entries(data)) {
+    items.push((v ? '\u2705' : '\u274c') + k);
+  }
+  el.textContent = items.join(' ');
+}
+
+// ── System Logs ──
+let _logsData = [];
+let _activeLogTab = 'all';
+
+function showSystemLogs() {
+  const existing = document.getElementById('logsOverlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'logsOverlay';
+  overlay.className = 'logs-overlay';
+  overlay.innerHTML = `
+    <div class="logs-container">
+      <div class="logs-header">
+        <h2><span>System</span> Logs</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="logs-tabs">
+            <button class="logs-tab active" data-filter="all" onclick="filterLogs('all',this)">All</button>
+            <button class="logs-tab" data-filter="deploy" onclick="filterLogs('deploy',this)">Deploy</button>
+            <button class="logs-tab" data-filter="lifecycle" onclick="filterLogs('lifecycle',this)">Lifecycle</button>
+            <button class="logs-tab" data-filter="events" onclick="filterLogs('events',this)">Events</button>
+            <button class="logs-tab" data-filter="session" onclick="filterLogs('session',this)">Sessions</button>
+            <button class="logs-tab" data-filter="diag" onclick="showDiagnostics(this)" style="border-color:#ff9500;color:#ff9500;">Diagnostics</button>
+          </div>
+          <button class="logs-close" onclick="this.closest('.logs-overlay').remove()">&times;</button>
+        </div>
+      </div>
+      <div class="logs-body">
+        <div class="logs-sidebar" id="logsSidebar">
+          <div style="padding:14px;color:#556;font-size:11px;">Loading...</div>
+        </div>
+        <div class="logs-content">
+          <div class="logs-content-header" id="logsContentHeader">
+            <span>Select a log file</span>
+            <span id="logsLineCount"></span>
+          </div>
+          <div class="logs-viewer" id="logsViewer">Select a log file from the sidebar to view its contents.</div>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+  // Load log list
+  fetch('/api/logs/list')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) { document.getElementById('logsSidebar').innerHTML = '<div style="padding:14px;color:#ff4466;">Error loading logs</div>'; return; }
+      _logsData = data.logs;
+      renderLogSidebar('all');
+    })
+    .catch(err => {
+      document.getElementById('logsSidebar').innerHTML = '<div style="padding:14px;color:#ff4466;">' + err.message + '</div>';
+    });
+}
+
+function renderLogSidebar(filter) {
+  const sidebar = document.getElementById('logsSidebar');
+  const filtered = filter === 'all' ? _logsData : _logsData.filter(l => l.type === filter);
+
+  if (filtered.length === 0) {
+    sidebar.innerHTML = '<div style="padding:14px;color:#556;font-size:11px;">No logs found</div>';
+    return;
+  }
+
+  sidebar.innerHTML = filtered.map(log => {
+    const date = new Date(log.mtime * 1000);
+    const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    return `<div class="log-item" onclick="loadLog('${log.id}', this)">
+      <div class="log-name"><span class="log-type-badge ${log.type}">${log.type}</span>${log.name}</div>
+      <div class="log-meta">${dateStr} &middot; ${log.size_kb}KB</div>
+    </div>`;
+  }).join('');
+}
+
+function filterLogs(filter, btn) {
+  _activeLogTab = filter;
+  document.querySelectorAll('.logs-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderLogSidebar(filter);
+  // Reset viewer
+  document.getElementById('logsViewer').textContent = 'Select a log file from the sidebar to view its contents.';
+  document.getElementById('logsContentHeader').querySelector('span').textContent = 'Select a log file';
+  document.getElementById('logsLineCount').textContent = '';
+}
+
+function loadLog(logId, el) {
+  // Highlight active
+  document.querySelectorAll('.log-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  const viewer = document.getElementById('logsViewer');
+  const header = document.getElementById('logsContentHeader').querySelector('span');
+  const lineCount = document.getElementById('logsLineCount');
+  viewer.textContent = 'Loading...';
+
+  fetch('/api/logs/read/' + logId + '?tail=500')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) { viewer.textContent = 'Error: ' + data.error; return; }
+      header.textContent = data.name;
+      const trunc = data.truncated ? ` (showing last 500 of ${data.total_lines})` : '';
+      lineCount.textContent = `${data.total_lines} lines${trunc}`;
+
+      if (data.entries) {
+        // JSONL — render structured
+        viewer.innerHTML = data.entries.map(entry => {
+          if (entry.raw) return `<div>${escHtml(entry.raw)}</div>`;
+          const ts = entry.ts ? entry.ts.split('T')[1] || entry.ts : '';
+          const evt = entry.event || entry.action || '';
+          const detail = entry.data ? JSON.stringify(entry.data) : JSON.stringify(entry);
+
+          let cls = '';
+          if (evt.includes('error') || (entry.data && entry.data.status === 'error')) cls = 'log-line-error';
+          else if (evt.includes('warn')) cls = 'log-line-warn';
+          else if (entry.data && entry.data.status === 'success') cls = 'log-line-ok';
+
+          return `<div class="${cls}"><span style="color:#556">${escHtml(ts)}</span> <span style="color:#00d4ff">[${escHtml(evt)}]</span> ${escHtml(detail)}</div>`;
+        }).join('');
+      } else {
+        // Plain text — colorize
+        const lines = data.content.split('\n');
+        viewer.innerHTML = lines.map(line => {
+          let cls = '';
+          if (/\[ERROR\]|error|ERROR|FAILED/i.test(line)) cls = 'log-line-error';
+          else if (/\[WARN\]|warn|WARNING/i.test(line)) cls = 'log-line-warn';
+          else if (/Step \d|━━━/.test(line)) cls = 'log-line-step';
+          else if (/complete|success|active|ready/i.test(line)) cls = 'log-line-ok';
+          return `<div class="${cls}">${escHtml(line)}</div>`;
+        }).join('');
+      }
+      // Scroll to bottom
+      viewer.scrollTop = viewer.scrollHeight;
+    })
+    .catch(err => { viewer.textContent = 'Error: ' + err.message; });
+}
+
+function showDiagnostics(btn) {
+  document.querySelectorAll('.logs-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Clear sidebar
+  document.getElementById('logsSidebar').innerHTML = '<div style="padding:14px;color:#556;font-size:11px;">Diagnostics mode — no file list</div>';
+
+  const viewer = document.getElementById('logsViewer');
+  const header = document.getElementById('logsContentHeader').querySelector('span');
+  const lineCount = document.getElementById('logsLineCount');
+  header.textContent = 'System Diagnostics';
+  lineCount.textContent = 'running checks...';
+  viewer.innerHTML = '<div class="diag-grid"><div style="grid-column:1/-1;color:#556;font-size:12px;">Running diagnostics...</div></div>';
+
+  fetch('/api/logs/diagnostics')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) { viewer.textContent = 'Error running diagnostics'; return; }
+      const ts = new Date(data.ts * 1000).toLocaleTimeString();
+      lineCount.textContent = `${data.checks.length} checks at ${ts}`;
+
+      viewer.innerHTML = '<div class="diag-grid">' + data.checks.map(c => {
+        return `<div class="diag-item">
+          <div class="diag-name">${escHtml(c.check)}</div>
+          <div class="diag-val ${c.status}">${escHtml(c.detail)}</div>
+        </div>`;
+      }).join('') + '</div>';
+    })
+    .catch(err => { viewer.textContent = 'Error: ' + err.message; });
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ── Quality Report ──
+function showQualityReport() {
+  const existing = document.getElementById('reportOverlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'reportOverlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = '<div style="background:#131820;border:1px solid #1e2a3a;border-radius:12px;max-width:800px;width:90%;max-height:80vh;overflow-y:auto;padding:24px;position:relative;">' +
+    '<button onclick="this.parentElement.parentElement.remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:#ff4466;font-size:20px;cursor:pointer;">&times;</button>' +
+    '<pre id="reportContent" style="color:#e0e6ed;font-size:12px;white-space:pre-wrap;font-family:monospace;">Loading report...</pre></div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+  fetch('/api/quality-report')
+    .then(r => r.json())
+    .then(data => {
+      const el = document.getElementById('reportContent');
+      if (data.ok) {
+        el.textContent = data.report;
+      } else {
+        el.textContent = 'Error: ' + (data.error || 'Unknown error');
+        el.style.color = '#ff4466';
+      }
+    })
+    .catch(err => {
+      document.getElementById('reportContent').textContent = 'Error: ' + err.message;
+    });
+}
+</script>
+<!-- Toast container for voice input errors -->
+<div class="toast-container" id="toastContainer"></div>
+</body>
+</html>
