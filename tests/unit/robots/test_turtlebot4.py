@@ -29,25 +29,6 @@ def test_turtlebot4_adapter_instantiates_with_required_fields():
     assert adapter.namespace == "turtlebot468"
 
 
-@pytest.mark.parametrize(
-    "method,args",
-    [
-        ("health_check", ()),
-    ],
-)
-def test_unimplemented_methods_raise_not_implemented(method, args):
-    """v0.2 Phase B implements build(); the rest signal not-yet-done."""
-    adapter = TurtleBot4Adapter(
-        ip="192.168.50.31",
-        ssh_user="ubuntu",
-        ssh_pass="turtlebot4",
-        namespace="turtlebot468",
-        workspace_dir="~/CS5335TurtleBot",
-    )
-    with pytest.raises(NotImplementedError):
-        getattr(adapter, method)(*args)
-
-
 def _adapter():
     return TurtleBot4Adapter(
         ip="192.168.50.31",
@@ -290,3 +271,71 @@ def test_set_initial_pose_raises_on_failure(mocker):
     )
     with pytest.raises(RuntimeError, match="topic publish error"):
         _adapter().set_initial_pose(0.0, 0.0, 0.0)
+
+
+def test_health_check_returns_structured_dict_all_ok(mocker):
+    """When every probe succeeds, overall is HEALTHY."""
+    mocker.patch.object(TurtleBot4Adapter, "check_clock_offset", return_value=0.1)
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:3] == ["ros2", "topic", "echo"]:
+            return MagicMock(returncode=0, stdout="header:\n  stamp:\n  frame_id: map\n", stderr="")
+        if cmd[:3] == ["ros2", "action", "list"]:
+            return MagicMock(returncode=0, stdout="/turtlebot468/navigate_to_pose\n", stderr="")
+        if cmd[:3] == ["ros2", "topic", "info"]:
+            return MagicMock(
+                returncode=0, stdout="Subscription count: 1\nPublisher count: 1\n", stderr=""
+            )
+        return MagicMock(returncode=1, stdout="", stderr="unhandled")
+
+    mocker.patch("robobench.robots.turtlebot4.run_local", side_effect=fake_run)
+
+    report = _adapter().health_check()
+
+    assert report["overall"] == "HEALTHY"
+    assert report["checks"]["clock_offset"]["status"] == "OK"
+    assert report["checks"]["amcl_pose"]["status"] == "OK"
+    assert report["checks"]["navigate_to_pose_action"]["status"] == "OK"
+    assert report["checks"]["nav_subscribers"]["status"] == "OK"
+
+
+def test_health_check_degraded_when_clock_warn(mocker):
+    """A WARN clock offset alone makes overall DEGRADED."""
+    mocker.patch.object(TurtleBot4Adapter, "check_clock_offset", return_value=5.0)
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:3] == ["ros2", "topic", "echo"]:
+            return MagicMock(returncode=0, stdout="header", stderr="")
+        if cmd[:3] == ["ros2", "action", "list"]:
+            return MagicMock(returncode=0, stdout="/turtlebot468/navigate_to_pose\n", stderr="")
+        if cmd[:3] == ["ros2", "topic", "info"]:
+            return MagicMock(
+                returncode=0, stdout="Subscription count: 1\nPublisher count: 1\n", stderr=""
+            )
+        return MagicMock(returncode=0, stdout="ok", stderr="")
+
+    mocker.patch("robobench.robots.turtlebot4.run_local", side_effect=fake_run)
+
+    report = _adapter().health_check()
+    assert report["overall"] == "DEGRADED"
+    assert report["checks"]["clock_offset"]["status"] == "WARN"
+
+
+def test_health_check_unhealthy_when_amcl_missing(mocker):
+    """If AMCL is not publishing, overall is UNHEALTHY regardless of others."""
+    mocker.patch.object(TurtleBot4Adapter, "check_clock_offset", return_value=0.0)
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:3] == ["ros2", "topic", "echo"]:
+            return MagicMock(returncode=124, stdout="", stderr="timeout")
+        if cmd[:3] == ["ros2", "action", "list"]:
+            return MagicMock(returncode=0, stdout="/turtlebot468/navigate_to_pose\n", stderr="")
+        if cmd[:3] == ["ros2", "topic", "info"]:
+            return MagicMock(returncode=0, stdout="Subscription count: 1\n", stderr="")
+        return MagicMock(returncode=0, stdout="ok", stderr="")
+
+    mocker.patch("robobench.robots.turtlebot4.run_local", side_effect=fake_run)
+
+    report = _adapter().health_check()
+    assert report["overall"] == "UNHEALTHY"
+    assert report["checks"]["amcl_pose"]["status"] == "FAIL"

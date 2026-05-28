@@ -207,8 +207,80 @@ class TurtleBot4Adapter(RobotAdapter):
         if result.returncode != 0:
             raise RuntimeError(f"set_initial_pose publish failed: {result.stderr.strip()}")
 
+    _CLOCK_OK = 2.0
+    _CLOCK_WARN = 10.0
+
     def health_check(self) -> dict:
-        raise NotImplementedError("Phase B: extract from deploy.sh step 9")
+        """Return a structured health report.
+
+        Schema::
+
+            {
+              "checks": {
+                "clock_offset": {"status": "OK"|"WARN"|"FAIL", "value": float, "unit": "s"},
+                "amcl_pose": {"status": "OK"|"FAIL", "detail": str},
+                "navigate_to_pose_action": {"status": "OK"|"FAIL"},
+                "nav_subscribers": {"status": "OK"|"FAIL", "count": int},
+              },
+              "overall": "HEALTHY"|"DEGRADED"|"UNHEALTHY",
+            }
+        """
+        checks: dict[str, dict] = {}
+
+        # 1. Clock offset
+        try:
+            offset = self.check_clock_offset()
+            abs_offset = abs(offset)
+            if abs_offset < self._CLOCK_OK:
+                status = "OK"
+            elif abs_offset < self._CLOCK_WARN:
+                status = "WARN"
+            else:
+                status = "FAIL"
+            checks["clock_offset"] = {"status": status, "value": offset, "unit": "s"}
+        except RuntimeError as exc:
+            checks["clock_offset"] = {"status": "FAIL", "detail": str(exc)}
+
+        # 2. AMCL publishing
+        amcl_topic = f"/{self.namespace}/amcl_pose"
+        amcl = run_local(["ros2", "topic", "echo", "--once", amcl_topic], timeout=15)
+        checks["amcl_pose"] = {
+            "status": "OK" if amcl.returncode == 0 else "FAIL",
+            "detail": "publishing" if amcl.returncode == 0 else "no pose in 15s",
+        }
+
+        # 3. navigate_to_pose action server visible
+        actions = run_local(["ros2", "action", "list"], timeout=10)
+        nav_action = f"/{self.namespace}/navigate_to_pose"
+        action_ok = actions.returncode == 0 and nav_action in actions.stdout
+        checks["navigate_to_pose_action"] = {
+            "status": "OK" if action_ok else "FAIL",
+        }
+
+        # 4. /user_input has at least one subscriber
+        info = run_local(["ros2", "topic", "info", "/user_input"], timeout=10)
+        sub_count = 0
+        for line in info.stdout.splitlines():
+            if line.strip().startswith("Subscription count:"):
+                try:
+                    sub_count = int(line.split(":", 1)[1].strip())
+                except ValueError:
+                    sub_count = 0
+                break
+        checks["nav_subscribers"] = {
+            "status": "OK" if sub_count > 0 else "FAIL",
+            "count": sub_count,
+        }
+
+        # Overall
+        if any(c["status"] == "FAIL" for c in checks.values()):
+            overall = "UNHEALTHY"
+        elif any(c["status"] == "WARN" for c in checks.values()):
+            overall = "DEGRADED"
+        else:
+            overall = "HEALTHY"
+
+        return {"checks": checks, "overall": overall}
 
     _PKILL_PATTERNS = (
         "navigation_mode.launch",
