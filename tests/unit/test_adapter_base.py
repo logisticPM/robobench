@@ -36,7 +36,7 @@ def test_fully_implemented_subclass_is_instantiable():
         def launch(self) -> None:
             return None
 
-        def activate_lifecycle(self) -> None:
+        def activate_lifecycle(self, map_yaml: str | None = None) -> None:
             return None
 
         def set_initial_pose(self, x: float, y: float, theta: float) -> None:

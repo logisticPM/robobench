@@ -43,8 +43,12 @@ class RobotAdapter(ABC):
         """Start the navigation stack on the robot."""
 
     @abstractmethod
-    def activate_lifecycle(self) -> None:
-        """Bring lifecycle nodes through configure -> activate."""
+    def activate_lifecycle(self, map_yaml: str | None = None) -> None:
+        """Bring lifecycle nodes through configure -> activate.
+
+        Args:
+            map_yaml: Absolute path to the static map YAML to load.
+        """
 
     @abstractmethod
     def set_initial_pose(self, x: float, y: float, theta: float) -> None:

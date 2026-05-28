@@ -160,8 +160,24 @@ class TurtleBot4Adapter(RobotAdapter):
         target = pid_path if pid_path is not None else Path("/tmp/robobench_launch.pid")
         target.write_text(f"{proc.pid}\n")
 
-    def activate_lifecycle(self) -> None:
-        raise NotImplementedError("Phase B: wraps lifecycle_activator")
+    def activate_lifecycle(self, map_yaml: str | None = None) -> None:
+        """Run the lifecycle activator to configure+activate all Nav2 nodes."""
+        if map_yaml is None:
+            raise ValueError("activate_lifecycle requires map_yaml path")
+        result = run_local(
+            [
+                "robobench-lifecycle-activator",
+                "--namespace",
+                self.namespace,
+                "--map-yaml",
+                map_yaml,
+            ],
+            timeout=180,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"lifecycle activation failed (rc={result.returncode}): {result.stderr.strip()}"
+            )
 
     def set_initial_pose(self, x: float, y: float, theta: float) -> None:
         raise NotImplementedError("Phase B: extract from deploy.sh step 7")

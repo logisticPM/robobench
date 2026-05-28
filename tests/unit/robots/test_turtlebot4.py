@@ -32,7 +32,6 @@ def test_turtlebot4_adapter_instantiates_with_required_fields():
 @pytest.mark.parametrize(
     "method,args",
     [
-        ("activate_lifecycle", ()),
         ("set_initial_pose", (1.0, 2.0, 0.0)),
         ("health_check", ()),
     ],
@@ -232,3 +231,36 @@ def test_shutdown_is_idempotent_when_no_pidfile(mocker, tmp_path):
     )
 
     _adapter().shutdown(pid_path=pid_path)  # no exception raised
+
+
+def test_activate_lifecycle_runs_activator_subprocess(mocker):
+    """activate_lifecycle() runs robobench-lifecycle-activator with namespace + map."""
+    run_mock = mocker.patch(
+        "robobench.robots.turtlebot4.run_local",
+        return_value=MagicMock(returncode=0, stdout="all activated\n", stderr=""),
+    )
+
+    _adapter().activate_lifecycle(map_yaml="/tmp/my_map.yaml")
+
+    cmd = run_mock.call_args.args[0]
+    assert cmd[0] == "robobench-lifecycle-activator"
+    assert "--namespace" in cmd
+    assert "turtlebot468" in cmd
+    assert "--map-yaml" in cmd
+    assert "/tmp/my_map.yaml" in cmd
+
+
+def test_activate_lifecycle_raises_on_failure(mocker):
+    """Nonzero exit becomes a RuntimeError that includes stderr."""
+    mocker.patch(
+        "robobench.robots.turtlebot4.run_local",
+        return_value=MagicMock(returncode=1, stdout="", stderr="map_server stuck in UNCONFIGURED"),
+    )
+    with pytest.raises(RuntimeError, match="map_server stuck"):
+        _adapter().activate_lifecycle(map_yaml="/tmp/my_map.yaml")
+
+
+def test_activate_lifecycle_requires_map_yaml():
+    """Calling without map_yaml raises ValueError."""
+    with pytest.raises(ValueError, match="map_yaml"):
+        _adapter().activate_lifecycle()
