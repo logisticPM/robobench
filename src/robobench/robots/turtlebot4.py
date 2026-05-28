@@ -7,6 +7,7 @@ v0.1 implements only ``check_clock_offset``. Remaining methods raise
 
 from __future__ import annotations
 
+import math
 import shlex
 import subprocess
 from dataclasses import dataclass
@@ -180,7 +181,31 @@ class TurtleBot4Adapter(RobotAdapter):
             )
 
     def set_initial_pose(self, x: float, y: float, theta: float) -> None:
-        raise NotImplementedError("Phase B: extract from deploy.sh step 7")
+        """Publish an AMCL initial pose at (x, y, theta) once."""
+        qz = math.sin(theta / 2.0)
+        qw = math.cos(theta / 2.0)
+        msg = (
+            "{header: {frame_id: 'map'}, "
+            f"pose: {{pose: {{position: {{x: {x}, y: {y}, z: 0.0}}, "
+            f"orientation: {{x: 0.0, y: 0.0, z: {qz}, w: {qw}}}}}, "
+            "covariance: [0.25, 0, 0, 0, 0, 0,  0, 0.25, 0, 0, 0, 0,  "
+            "0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0,  "
+            "0, 0, 0, 0, 0, 0.06853892326654787]}}"
+        )
+        result = run_local(
+            [
+                "ros2",
+                "topic",
+                "pub",
+                "--once",
+                f"/{self.namespace}/initialpose",
+                "geometry_msgs/msg/PoseWithCovarianceStamped",
+                msg,
+            ],
+            timeout=15,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"set_initial_pose publish failed: {result.stderr.strip()}")
 
     def health_check(self) -> dict:
         raise NotImplementedError("Phase B: extract from deploy.sh step 9")

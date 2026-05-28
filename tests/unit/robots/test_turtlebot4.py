@@ -32,7 +32,6 @@ def test_turtlebot4_adapter_instantiates_with_required_fields():
 @pytest.mark.parametrize(
     "method,args",
     [
-        ("set_initial_pose", (1.0, 2.0, 0.0)),
         ("health_check", ()),
     ],
 )
@@ -264,3 +263,30 @@ def test_activate_lifecycle_requires_map_yaml():
     """Calling without map_yaml raises ValueError."""
     with pytest.raises(ValueError, match="map_yaml"):
         _adapter().activate_lifecycle()
+
+
+def test_set_initial_pose_publishes_to_initialpose(mocker):
+    """set_initial_pose runs ros2 topic pub --once on /<ns>/initialpose."""
+    run_mock = mocker.patch(
+        "robobench.robots.turtlebot4.run_local",
+        return_value=MagicMock(returncode=0, stdout="", stderr=""),
+    )
+
+    _adapter().set_initial_pose(1.0, 2.0, 0.0)
+
+    cmd = run_mock.call_args.args[0]
+    assert cmd[:3] == ["ros2", "topic", "pub"]
+    assert "--once" in cmd
+    assert "/turtlebot468/initialpose" in cmd
+    msg = cmd[-1]
+    assert "1.0" in msg
+    assert "2.0" in msg
+
+
+def test_set_initial_pose_raises_on_failure(mocker):
+    mocker.patch(
+        "robobench.robots.turtlebot4.run_local",
+        return_value=MagicMock(returncode=2, stdout="", stderr="topic publish error"),
+    )
+    with pytest.raises(RuntimeError, match="topic publish error"):
+        _adapter().set_initial_pose(0.0, 0.0, 0.0)
