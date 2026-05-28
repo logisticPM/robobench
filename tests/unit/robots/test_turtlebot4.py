@@ -95,3 +95,57 @@ def test_check_clock_offset_raises_on_ssh_failure(mocker):
 
     with pytest.raises(RuntimeError, match="date: command not found"):
         _adapter().check_clock_offset()
+
+
+def test_setup_clock_sync_writes_chrony_conf_and_restarts(mocker):
+    """setup_clock_sync writes /etc/chrony/chrony.conf, restarts chrony, hits Create3."""
+    fake_client = MagicMock()
+    fake_client.__enter__.return_value = fake_client
+    fake_client.__exit__.return_value = None
+    # Sequence of expected ssh.run() calls (in order)
+    fake_client.run.side_effect = [
+        MagicMock(returncode=0, stdout="ii  chrony\n", stderr=""),  # dpkg -l chrony
+        MagicMock(returncode=0, stdout="", stderr=""),  # tee + restart chrony
+        MagicMock(returncode=0, stdout="1779883210\n", stderr=""),  # date +%s for drift
+        MagicMock(returncode=0, stdout='{"status":"ok"}', stderr=""),  # curl Create3
+    ]
+    mocker.patch("robobench.robots.turtlebot4.SSHClient", return_value=fake_client)
+    mocker.patch(
+        "robobench.robots.turtlebot4._now_utc",
+        return_value=datetime(2026, 5, 27, 12, 0, 11, tzinfo=UTC),
+    )
+
+    report = _adapter().setup_clock_sync(workstation_ip="192.168.50.10")
+
+    assert report["chrony_installed"] is True
+    assert report["chrony_configured"] is True
+    assert report["create3_ntp_restarted"] is True
+    assert report["drift_seconds"] == pytest.approx(1.0, abs=0.5)
+
+
+def test_setup_clock_sync_installs_chrony_if_missing(mocker):
+    """If `dpkg -l chrony` reports no install, the apt-get install is run."""
+    fake_client = MagicMock()
+    fake_client.__enter__.return_value = fake_client
+    fake_client.__exit__.return_value = None
+    fake_client.run.side_effect = [
+        MagicMock(returncode=1, stdout="", stderr=""),  # dpkg —not installed
+        MagicMock(returncode=0, stdout="", stderr=""),  # apt-get install
+        MagicMock(returncode=0, stdout="", stderr=""),  # tee + restart
+        MagicMock(returncode=0, stdout="1779883210\n", stderr=""),  # date +%s
+        MagicMock(returncode=0, stdout="ok", stderr=""),  # curl
+    ]
+    mocker.patch("robobench.robots.turtlebot4.SSHClient", return_value=fake_client)
+    mocker.patch(
+        "robobench.robots.turtlebot4._now_utc",
+        return_value=datetime(2026, 5, 27, 12, 0, 11, tzinfo=UTC),
+    )
+
+    report = _adapter().setup_clock_sync(workstation_ip="192.168.50.10")
+
+    # First call: dpkg check; second call: install
+    first_call_cmd = fake_client.run.call_args_list[0].args[0]
+    second_call_cmd = fake_client.run.call_args_list[1].args[0]
+    assert "dpkg" in first_call_cmd[0]
+    assert any("apt-get" in part for part in second_call_cmd)
+    assert report["chrony_installed"] is True

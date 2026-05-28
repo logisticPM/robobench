@@ -7,6 +7,7 @@ v0.1 implements only ``check_clock_offset``. Remaining methods raise
 
 from __future__ import annotations
 
+import shlex
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -44,6 +45,81 @@ class TurtleBot4Adapter(RobotAdapter):
         robot_epoch = float(result.stdout.strip())
         local_epoch = _now_utc().timestamp()
         return local_epoch - robot_epoch
+
+    def setup_clock_sync(self, workstation_ip: str) -> dict:
+        """Configure chrony on the robot to follow the workstation; restart Create3 NTP.
+
+        Returns a structured report dict. Mirrors upstream ``deploy.sh`` Step 1
+        without the human-friendly logging.
+        """
+        report: dict = {
+            "chrony_installed": False,
+            "chrony_configured": False,
+            "create3_ntp_restarted": False,
+            "drift_seconds": None,
+        }
+
+        chrony_conf = (
+            f"server {workstation_ip} prefer iburst minpoll 0 maxpoll 2\n"
+            "pool ntp.ubuntu.com iburst maxsources 2\n"
+            "local stratum 11\n"
+            "allow 192.168.0.0/16\n"
+            "makestep 0.1 -1\n"
+            "rtcsync\n"
+        )
+
+        with SSHClient(self.ip, self.ssh_user, self.ssh_pass) as ssh:
+            # 1. Check if chrony is installed; install if not.
+            check = ssh.run(["dpkg", "-l", "chrony"], timeout=15)
+            if check.returncode == 0 and "ii" in check.stdout:
+                report["chrony_installed"] = True
+            else:
+                install = ssh.run(["sudo", "apt-get", "install", "-y", "chrony"], timeout=120)
+                report["chrony_installed"] = install.returncode == 0
+                if install.returncode != 0:
+                    raise RuntimeError(f"chrony install failed: {install.stderr.strip()}")
+
+            # 2. Write config + restart chrony. Use stdin-redirected tee.
+            write_cmd = [
+                "sh",
+                "-c",
+                (
+                    f"echo {shlex.quote(chrony_conf)} "
+                    "| sudo tee /etc/chrony/chrony.conf > /dev/null "
+                    "&& sudo systemctl restart chrony"
+                ),
+            ]
+            write = ssh.run(write_cmd, timeout=30)
+            report["chrony_configured"] = write.returncode == 0
+            if write.returncode != 0:
+                raise RuntimeError(f"chrony config/restart failed: {write.stderr.strip()}")
+
+            # 3. Verify drift with a fresh date +%s read.
+            date_res = ssh.run(["date", "+%s"], timeout=10)
+            if date_res.returncode == 0:
+                robot_epoch = float(date_res.stdout.strip())
+                local_epoch = _now_utc().timestamp()
+                report["drift_seconds"] = local_epoch - robot_epoch
+
+            # 4. Kick Create3 NTP restart (HTTP REST, runs from the robot).
+            create3 = ssh.run(
+                [
+                    "curl",
+                    "-s",
+                    "-m",
+                    "10",
+                    "-X",
+                    "POST",
+                    "http://192.168.186.2/api/restart-ntpd",
+                ],
+                timeout=15,
+            )
+            failure_markers = ("fail", "error", "refused")
+            report["create3_ntp_restarted"] = create3.returncode == 0 and not any(
+                m in create3.stdout.lower() for m in failure_markers
+            )
+
+        return report
 
     def build(self) -> None:
         raise NotImplementedError("Phase B: extract from deploy.sh step 2")
