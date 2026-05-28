@@ -141,7 +141,7 @@ class TurtleBot4Adapter(RobotAdapter):
                 "colcon",
                 "build",
                 "--packages-select",
-                "campus_nav_llm",
+                *self.build_packages,
                 "--symlink-install",
             ],
             timeout=600,

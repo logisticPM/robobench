@@ -386,3 +386,26 @@ def test_adapter_accepts_explicit_build_launch_health_fields():
     assert a.launch_package == "my_pkg"
     assert a.launch_file == "custom.launch.py"
     assert a.user_input_topic == "/custom_topic"
+
+
+def test_build_uses_configured_packages_list(mocker):
+    """build() iterates self.build_packages into the colcon --packages-select flag."""
+    fake_result = MagicMock(returncode=0, stdout="", stderr="")
+    run_mock = mocker.patch("robobench.robots.turtlebot4.run_local", return_value=fake_result)
+    adapter = TurtleBot4Adapter(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="ns",
+        workspace_dir="/ws",
+        build_packages=["pkg_a", "pkg_b"],
+    )
+
+    adapter.build()
+
+    cmd = run_mock.call_args.args[0]
+    assert cmd[0] == "colcon"
+    assert "--packages-select" in cmd
+    pkg_select_idx = cmd.index("--packages-select")
+    assert cmd[pkg_select_idx + 1] == "pkg_a"
+    assert cmd[pkg_select_idx + 2] == "pkg_b"
