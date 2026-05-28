@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from robobench import __version__
@@ -27,3 +29,77 @@ def test_no_args_prints_help_and_exits_nonzero(capsys):
     assert exc_info.value.code == _ARGPARSE_USAGE_ERROR
     captured = capsys.readouterr()
     assert "usage:" in captured.err.lower() or "usage:" in captured.out.lower()
+
+
+def _write_config(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "robot:\n"
+        "  ip: '192.168.50.31'\n"
+        "  ssh_user: 'ubuntu'\n"
+        "  ssh_pass: 'turtlebot4'\n"
+        "  namespace: 'turtlebot468'\n"
+        "workspace:\n"
+        "  dir: '~/CS5335TurtleBot'\n"
+    )
+    return cfg
+
+
+def test_bringup_runs_all_steps_in_order(mocker, tmp_path):
+    """`robobench bringup` calls setup_clock_sync, build, launch, activate, health in order."""
+    fake_adapter = MagicMock()
+    fake_adapter.health_check.return_value = {"overall": "HEALTHY", "checks": {}}
+    mocker.patch("robobench.cli.TurtleBot4Adapter", return_value=fake_adapter)
+    cfg = _write_config(tmp_path)
+
+    rc = main(
+        [
+            "bringup",
+            "--robot",
+            "turtlebot4",
+            "--config",
+            str(cfg),
+            "--workstation-ip",
+            "192.168.50.10",
+            "--map-yaml",
+            "/tmp/my_map.yaml",
+            "--initial-pose",
+            "5.19",
+            "2.56",
+            "0.0",
+        ]
+    )
+
+    assert rc == 0
+    method_calls = [c[0] for c in fake_adapter.method_calls]
+    assert method_calls.index("setup_clock_sync") < method_calls.index("build")
+    assert method_calls.index("build") < method_calls.index("launch")
+    assert method_calls.index("launch") < method_calls.index("activate_lifecycle")
+    assert method_calls.index("activate_lifecycle") < method_calls.index("health_check")
+
+
+def test_bringup_exits_nonzero_on_unhealthy(mocker, tmp_path):
+    """If health_check reports UNHEALTHY, bringup returns 1."""
+    fake_adapter = MagicMock()
+    fake_adapter.health_check.return_value = {"overall": "UNHEALTHY", "checks": {}}
+    mocker.patch("robobench.cli.TurtleBot4Adapter", return_value=fake_adapter)
+    cfg = _write_config(tmp_path)
+
+    rc = main(
+        [
+            "bringup",
+            "--robot",
+            "turtlebot4",
+            "--config",
+            str(cfg),
+            "--workstation-ip",
+            "192.168.50.10",
+            "--map-yaml",
+            "/tmp/my_map.yaml",
+            "--initial-pose",
+            "0.0",
+            "0.0",
+            "0.0",
+        ]
+    )
+    assert rc == 1
