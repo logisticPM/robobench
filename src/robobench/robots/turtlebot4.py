@@ -169,5 +169,50 @@ class TurtleBot4Adapter(RobotAdapter):
     def health_check(self) -> dict:
         raise NotImplementedError("Phase B: extract from deploy.sh step 9")
 
-    def shutdown(self) -> None:
-        raise NotImplementedError("Phase B: wraps stop.sh")
+    _PKILL_PATTERNS = (
+        "navigation_mode.launch",
+        "lifecycle_manager",
+        "lifecycle_activator",
+        "/map_server ",
+        "/amcl ",
+        "/controller_server ",
+        "/planner_server ",
+        "/behavior_server ",
+        "/bt_navigator ",
+        "/waypoint_follower ",
+        "/velocity_smoother ",
+        "task_executor",
+        "llm_planner",
+        "odom_tf_publisher",
+    )
+
+    def shutdown(self, pid_path: Path | None = None) -> None:
+        """Stop the navigation stack: zero cmd_vel, kill the launcher PID, pkill stragglers."""
+        target = pid_path if pid_path is not None else Path("/tmp/robobench_launch.pid")
+
+        # 1. Zero velocity, in case the robot is moving.
+        run_local(
+            [
+                "ros2",
+                "topic",
+                "pub",
+                "--once",
+                f"/{self.namespace}/cmd_vel",
+                "geometry_msgs/msg/Twist",
+                "{linear: {x: 0.0}, angular: {z: 0.0}}",
+            ],
+            timeout=5.0,
+        )
+
+        # 2. Kill the recorded launcher PID, if the PID file still exists.
+        if target.exists():
+            try:
+                pid = int(target.read_text().strip())
+                run_local(["kill", str(pid)], timeout=2.0)
+            except (ValueError, OSError):
+                pass
+            target.unlink(missing_ok=True)
+
+        # 3. pkill known nav stack process names.
+        for pattern in self._PKILL_PATTERNS:
+            run_local(["pkill", "-9", "-f", pattern], timeout=2.0)

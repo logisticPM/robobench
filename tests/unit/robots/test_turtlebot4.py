@@ -35,7 +35,6 @@ def test_turtlebot4_adapter_instantiates_with_required_fields():
         ("activate_lifecycle", ()),
         ("set_initial_pose", (1.0, 2.0, 0.0)),
         ("health_check", ()),
-        ("shutdown", ()),
     ],
 )
 def test_unimplemented_methods_raise_not_implemented(method, args):
@@ -203,3 +202,33 @@ def test_launch_uses_default_pid_path_if_none_given(mocker):
     _adapter().launch()
 
     write_mock.assert_called_once_with("99\n")
+
+
+def test_shutdown_publishes_zero_cmdvel_and_kills_pid(mocker, tmp_path):
+    """shutdown() publishes zero cmd_vel, then kills the PID, then pkills stragglers."""
+    pid_path = tmp_path / "launch.pid"
+    pid_path.write_text("12345\n")
+    run_mock = mocker.patch(
+        "robobench.robots.turtlebot4.run_local",
+        return_value=MagicMock(returncode=0, stdout="", stderr=""),
+    )
+
+    _adapter().shutdown(pid_path=pid_path)
+
+    # First call must be a ros2 topic pub publishing zeros to /<ns>/cmd_vel.
+    first_cmd = run_mock.call_args_list[0].args[0]
+    assert first_cmd[:2] == ["ros2", "topic"]
+    assert "/turtlebot468/cmd_vel" in first_cmd
+    # PID file is removed after kill
+    assert not pid_path.exists()
+
+
+def test_shutdown_is_idempotent_when_no_pidfile(mocker, tmp_path):
+    """shutdown() with no pid_path-pointed file still publishes cmd_vel + pkills."""
+    pid_path = tmp_path / "absent.pid"
+    mocker.patch(
+        "robobench.robots.turtlebot4.run_local",
+        return_value=MagicMock(returncode=0, stdout="", stderr=""),
+    )
+
+    _adapter().shutdown(pid_path=pid_path)  # no exception raised
