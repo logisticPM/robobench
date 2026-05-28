@@ -388,6 +388,38 @@ def test_adapter_accepts_explicit_build_launch_health_fields():
     assert a.user_input_topic == "/custom_topic"
 
 
+def test_health_check_uses_configured_user_input_topic(mocker):
+    """health_check probes self.user_input_topic, not the hard-coded /user_input."""
+    mocker.patch.object(TurtleBot4Adapter, "check_clock_offset", return_value=0.0)
+
+    captured_topics = []
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:3] == ["ros2", "topic", "info"]:
+            captured_topics.append(cmd[3])
+            return MagicMock(returncode=0, stdout="Subscription count: 1\n", stderr="")
+        if cmd[:3] == ["ros2", "topic", "echo"]:
+            return MagicMock(returncode=0, stdout="ok", stderr="")
+        if cmd[:3] == ["ros2", "action", "list"]:
+            return MagicMock(returncode=0, stdout="/ns/navigate_to_pose\n", stderr="")
+        return MagicMock(returncode=0, stdout="ok", stderr="")
+
+    mocker.patch("robobench.robots.turtlebot4.run_local", side_effect=fake_run)
+
+    adapter = TurtleBot4Adapter(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="ns",
+        workspace_dir="/ws",
+        user_input_topic="/my_custom_input",
+    )
+
+    adapter.health_check()
+
+    assert "/my_custom_input" in captured_topics
+
+
 def test_build_uses_configured_packages_list(mocker):
     """build() iterates self.build_packages into the colcon --packages-select flag."""
     fake_result = MagicMock(returncode=0, stdout="", stderr="")

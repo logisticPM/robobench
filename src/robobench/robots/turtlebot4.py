@@ -267,7 +267,7 @@ class TurtleBot4Adapter(RobotAdapter):
         }
 
         # 4. /user_input has at least one subscriber
-        info = run_local(["ros2", "topic", "info", "/user_input"], timeout=10)
+        info = run_local(["ros2", "topic", "info", self.user_input_topic], timeout=10)
         sub_count = 0
         for line in info.stdout.splitlines():
             if line.strip().startswith("Subscription count:"):
