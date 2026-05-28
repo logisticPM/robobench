@@ -103,3 +103,21 @@ def test_bringup_exits_nonzero_on_unhealthy(mocker, tmp_path):
         ]
     )
     assert rc == 1
+
+
+def test_health_prints_json_report(mocker, tmp_path, capsys):
+    """`robobench health` prints adapter.health_check() as JSON."""
+    fake_adapter = MagicMock()
+    fake_adapter.health_check.return_value = {
+        "overall": "HEALTHY",
+        "checks": {"clock_offset": {"status": "OK", "value": 0.1, "unit": "s"}},
+    }
+    mocker.patch("robobench.cli.TurtleBot4Adapter", return_value=fake_adapter)
+    cfg = _write_config(tmp_path)
+
+    rc = main(["health", "--robot", "turtlebot4", "--config", str(cfg)])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert '"overall": "HEALTHY"' in out
+    assert '"clock_offset"' in out

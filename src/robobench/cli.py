@@ -11,6 +11,7 @@ Usage examples (Phase A — v0.1):
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -55,6 +56,11 @@ def _build_parser() -> argparse.ArgumentParser:
     bringup.add_argument("--skip-clock", action="store_true")
     bringup.add_argument("--skip-build", action="store_true")
     bringup.set_defaults(func=_cmd_bringup)
+
+    health = subparsers.add_parser("health", help="Print JSON health report.")
+    health.add_argument("--robot", required=True, choices=["turtlebot4"])
+    health.add_argument("--config", required=True)
+    health.set_defaults(func=_cmd_health)
 
     return parser
 
@@ -113,6 +119,16 @@ def _cmd_bringup(args: argparse.Namespace) -> int:
     print(f"  overall: {report['overall']}")
     for name, check in report["checks"].items():
         print(f"    {name}: {check['status']}")
+    return 0 if report["overall"] != "UNHEALTHY" else 1
+
+
+def _cmd_health(args: argparse.Namespace) -> int:
+    if args.robot != "turtlebot4":
+        print(f"unsupported robot: {args.robot}", file=sys.stderr)
+        return 2
+    adapter = TurtleBot4Adapter(**load_adapter_config(Path(args.config)))
+    report = adapter.health_check()
+    print(json.dumps(report, indent=2))
     return 0 if report["overall"] != "UNHEALTHY" else 1
 
 
