@@ -32,7 +32,6 @@ def test_turtlebot4_adapter_instantiates_with_required_fields():
 @pytest.mark.parametrize(
     "method,args",
     [
-        ("build", ()),
         ("launch", ()),
         ("activate_lifecycle", ()),
         ("set_initial_pose", (1.0, 2.0, 0.0)),
@@ -41,7 +40,7 @@ def test_turtlebot4_adapter_instantiates_with_required_fields():
     ],
 )
 def test_unimplemented_methods_raise_not_implemented(method, args):
-    """v0.1 only implements check_clock_offset; the rest signal not-yet-done."""
+    """v0.2 Phase B implements build(); the rest signal not-yet-done."""
     adapter = TurtleBot4Adapter(
         ip="192.168.50.31",
         ssh_user="ubuntu",
@@ -149,3 +148,28 @@ def test_setup_clock_sync_installs_chrony_if_missing(mocker):
     assert "dpkg" in first_call_cmd[0]
     assert any("apt-get" in part for part in second_call_cmd)
     assert report["chrony_installed"] is True
+
+
+def test_build_runs_colcon_in_workspace(mocker):
+    """build() shells out to `colcon build --packages-select campus_nav_llm` in workspace_dir."""
+    fake_result = MagicMock(returncode=0, stdout="Summary: 1 package built\n", stderr="")
+    run_mock = mocker.patch("robobench.robots.turtlebot4.run_local", return_value=fake_result)
+
+    _adapter().build()
+
+    call = run_mock.call_args
+    cmd = call.args[0]
+    assert cmd[0] == "colcon"
+    assert "build" in cmd
+    assert "--packages-select" in cmd
+    assert "campus_nav_llm" in cmd
+    assert call.kwargs["cwd"] == "~/CS5335TurtleBot"
+
+
+def test_build_raises_on_nonzero(mocker):
+    """A nonzero colcon exit becomes a RuntimeError with stderr."""
+    fake_result = MagicMock(returncode=1, stdout="", stderr="error: cmake compile failed\n")
+    mocker.patch("robobench.robots.turtlebot4.run_local", return_value=fake_result)
+
+    with pytest.raises(RuntimeError, match="cmake compile failed"):
+        _adapter().build()

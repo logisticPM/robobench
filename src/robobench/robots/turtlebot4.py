@@ -11,6 +11,7 @@ import shlex
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from robobench._process import run_local
 from robobench.adapter_base import RobotAdapter
 from robobench.ssh import SSHClient
 
@@ -122,7 +123,22 @@ class TurtleBot4Adapter(RobotAdapter):
         return report
 
     def build(self) -> None:
-        raise NotImplementedError("Phase B: extract from deploy.sh step 2")
+        """Run ``colcon build --packages-select campus_nav_llm`` in the workspace."""
+        result = run_local(
+            [
+                "colcon",
+                "build",
+                "--packages-select",
+                "campus_nav_llm",
+                "--symlink-install",
+            ],
+            timeout=600,
+            cwd=self.workspace_dir,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"colcon build failed (rc={result.returncode}): {result.stderr.strip()}"
+            )
 
     def launch(self) -> None:
         raise NotImplementedError("Phase B: extract from deploy.sh step 3")
