@@ -16,7 +16,7 @@ from pathlib import Path
 
 from robobench._process import run_local
 from robobench.adapter_base import RobotAdapter
-from robobench.ssh import SSHClient
+from robobench.ssh import SSHClient, check_workstation_chrony_config
 
 
 def _now_utc() -> datetime:
@@ -61,11 +61,13 @@ class TurtleBot4Adapter(RobotAdapter):
         without the human-friendly logging.
         """
         report: dict = {
+            "workstation_chrony": None,
             "chrony_installed": False,
             "chrony_configured": False,
             "create3_ntp_restarted": False,
             "drift_seconds": None,
         }
+        report["workstation_chrony"] = check_workstation_chrony_config()
 
         chrony_conf = (
             f"server {workstation_ip} prefer iburst minpoll 0 maxpoll 2\n"

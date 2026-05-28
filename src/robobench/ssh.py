@@ -8,6 +8,8 @@ in play later.
 
 from __future__ import annotations
 
+import pathlib
+import re
 import shlex
 from dataclasses import dataclass
 from types import TracebackType
@@ -89,3 +91,52 @@ class SSHClient:
                 f.write(content)
         finally:
             sftp.close()
+
+
+def check_workstation_chrony_config(
+    conf_path: pathlib.Path | str = "/etc/chrony/chrony.conf",
+) -> dict:
+    """Check the workstation's chrony.conf has the lines required to serve the robot.
+
+    The robot's chrony follows the workstation as its NTP server. For that to
+    work, the workstation must:
+      1. Allow the robot's subnet (``allow 192.168.0.0/16`` or similar)
+      2. Advertise a local stratum so chrony will serve time even without
+         upstream sync (``local stratum 10``)
+
+    Returns a structured dict::
+
+        {
+          "status": "OK" | "WARN" | "SKIPPED",
+          "has_allow": bool,           # not present if SKIPPED
+          "has_local_stratum": bool,   # not present if SKIPPED
+          "hint": str,                 # present on WARN
+          "reason": str,               # present on SKIPPED
+        }
+
+    SKIPPED indicates chrony.conf was not found — either the workstation has no
+    chrony installed (Windows, or a minimal Linux), or the path is non-standard.
+    Callers should treat SKIPPED as "user needs to verify manually".
+    """
+    path = pathlib.Path(conf_path)
+    if not path.exists():
+        return {
+            "status": "SKIPPED",
+            "reason": f"chrony.conf not found at {path}; install chrony or pass conf_path=",
+        }
+    text = path.read_text(encoding="utf-8", errors="replace")
+    has_allow = bool(re.search(r"^\s*allow\s+192\.168", text, re.MULTILINE))
+    has_local_stratum = bool(re.search(r"^\s*local\s+stratum\s+\d+", text, re.MULTILINE))
+    if has_allow and has_local_stratum:
+        return {"status": "OK", "has_allow": True, "has_local_stratum": True}
+    return {
+        "status": "WARN",
+        "has_allow": has_allow,
+        "has_local_stratum": has_local_stratum,
+        "hint": (
+            "Add the following lines to /etc/chrony/chrony.conf and run "
+            "'sudo systemctl restart chrony':\n"
+            "    allow 192.168.0.0/16\n"
+            "    local stratum 10"
+        ),
+    }

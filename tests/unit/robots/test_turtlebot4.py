@@ -467,3 +467,35 @@ def test_launch_uses_configured_package_and_file(mocker, tmp_path):
     assert cmd[:2] == ["ros2", "launch"]
     assert cmd[2] == "my_pkg"
     assert cmd[3] == "custom.launch.py"
+
+
+def test_setup_clock_sync_includes_workstation_chrony_check_in_report(mocker):
+    """setup_clock_sync's report includes a workstation_chrony field from the local check."""
+    fake_client = MagicMock()
+    fake_client.__enter__.return_value = fake_client
+    fake_client.__exit__.return_value = None
+    fake_client.run.side_effect = [
+        MagicMock(returncode=0, stdout="ii  chrony\n", stderr=""),
+        MagicMock(returncode=0, stdout="", stderr=""),
+        MagicMock(returncode=0, stdout="1748347210\n", stderr=""),
+        MagicMock(returncode=0, stdout="ok", stderr=""),
+    ]
+    mocker.patch("robobench.robots.turtlebot4.SSHClient", return_value=fake_client)
+    mocker.patch(
+        "robobench.robots.turtlebot4._now_utc",
+        return_value=datetime(2026, 5, 27, 12, 0, 11, tzinfo=UTC),
+    )
+    mocker.patch(
+        "robobench.robots.turtlebot4.check_workstation_chrony_config",
+        return_value={
+            "status": "WARN",
+            "has_allow": False,
+            "has_local_stratum": False,
+            "hint": "...",
+        },
+    )
+
+    report = _adapter().setup_clock_sync(workstation_ip="10.0.0.5")
+
+    assert "workstation_chrony" in report
+    assert report["workstation_chrony"]["status"] == "WARN"
