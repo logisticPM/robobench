@@ -409,3 +409,29 @@ def test_build_uses_configured_packages_list(mocker):
     pkg_select_idx = cmd.index("--packages-select")
     assert cmd[pkg_select_idx + 1] == "pkg_a"
     assert cmd[pkg_select_idx + 2] == "pkg_b"
+
+
+def test_launch_uses_configured_package_and_file(mocker, tmp_path):
+    """launch() passes self.launch_package and self.launch_file to ros2 launch."""
+    fake_popen = MagicMock()
+    fake_popen.pid = 1
+    popen_mock = mocker.patch(
+        "robobench.robots.turtlebot4.subprocess.Popen", return_value=fake_popen
+    )
+    pid_path = tmp_path / "p.pid"
+    adapter = TurtleBot4Adapter(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="ns",
+        workspace_dir="/ws",
+        launch_package="my_pkg",
+        launch_file="custom.launch.py",
+    )
+
+    adapter.launch(pid_path=pid_path)
+
+    cmd = popen_mock.call_args.args[0]
+    assert cmd[:2] == ["ros2", "launch"]
+    assert cmd[2] == "my_pkg"
+    assert cmd[3] == "custom.launch.py"

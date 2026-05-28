@@ -162,8 +162,8 @@ class TurtleBot4Adapter(RobotAdapter):
             [
                 "ros2",
                 "launch",
-                "campus_nav_llm",
-                "navigation_mode.launch.py",
+                self.launch_package,
+                self.launch_file,
                 f"namespace:={self.namespace}",
             ]
         )
