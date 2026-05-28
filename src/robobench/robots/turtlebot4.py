@@ -8,8 +8,10 @@ v0.1 implements only ``check_clock_offset``. Remaining methods raise
 from __future__ import annotations
 
 import shlex
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 
 from robobench._process import run_local
 from robobench.adapter_base import RobotAdapter
@@ -140,8 +142,23 @@ class TurtleBot4Adapter(RobotAdapter):
                 f"colcon build failed (rc={result.returncode}): {result.stderr.strip()}"
             )
 
-    def launch(self) -> None:
-        raise NotImplementedError("Phase B: extract from deploy.sh step 3")
+    def launch(self, pid_path: Path | None = None) -> None:
+        """Start ``ros2 launch campus_nav_llm navigation_mode.launch.py`` in the background.
+
+        Writes the launcher PID to ``pid_path`` (defaults to
+        ``/tmp/robobench_launch.pid``) so ``shutdown()`` can find it later.
+        """
+        proc = subprocess.Popen(  # noqa: S603 — controlled cmd list
+            [
+                "ros2",
+                "launch",
+                "campus_nav_llm",
+                "navigation_mode.launch.py",
+                f"namespace:={self.namespace}",
+            ]
+        )
+        target = pid_path if pid_path is not None else Path("/tmp/robobench_launch.pid")
+        target.write_text(f"{proc.pid}\n")
 
     def activate_lifecycle(self) -> None:
         raise NotImplementedError("Phase B: wraps lifecycle_activator")

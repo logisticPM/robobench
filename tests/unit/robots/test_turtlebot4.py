@@ -32,7 +32,6 @@ def test_turtlebot4_adapter_instantiates_with_required_fields():
 @pytest.mark.parametrize(
     "method,args",
     [
-        ("launch", ()),
         ("activate_lifecycle", ()),
         ("set_initial_pose", (1.0, 2.0, 0.0)),
         ("health_check", ()),
@@ -173,3 +172,34 @@ def test_build_raises_on_nonzero(mocker):
 
     with pytest.raises(RuntimeError, match="cmake compile failed"):
         _adapter().build()
+
+
+def test_launch_starts_ros2_launch_in_background_and_writes_pidfile(mocker, tmp_path):
+    """launch() invokes Popen on `ros2 launch ...` and stores PID to the configured pid_path."""
+    fake_popen = MagicMock()
+    fake_popen.pid = 12345
+    popen_mock = mocker.patch(
+        "robobench.robots.turtlebot4.subprocess.Popen", return_value=fake_popen
+    )
+    pid_path = tmp_path / "launch.pid"
+
+    _adapter().launch(pid_path=pid_path)
+
+    assert pid_path.read_text().strip() == "12345"
+    cmd = popen_mock.call_args.args[0]
+    assert cmd[0] == "ros2"
+    assert "launch" in cmd
+    assert "campus_nav_llm" in cmd
+    assert "navigation_mode.launch.py" in cmd
+
+
+def test_launch_uses_default_pid_path_if_none_given(mocker):
+    """When pid_path is None, /tmp/robobench_launch.pid is used."""
+    fake_popen = MagicMock()
+    fake_popen.pid = 99
+    mocker.patch("robobench.robots.turtlebot4.subprocess.Popen", return_value=fake_popen)
+    write_mock = mocker.patch("robobench.robots.turtlebot4.Path.write_text")
+
+    _adapter().launch()
+
+    write_mock.assert_called_once_with("99\n")
