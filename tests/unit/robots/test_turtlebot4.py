@@ -339,3 +339,16 @@ def test_health_check_unhealthy_when_amcl_missing(mocker):
     report = _adapter().health_check()
     assert report["overall"] == "UNHEALTHY"
     assert report["checks"]["amcl_pose"]["status"] == "FAIL"
+
+
+def test_build_raises_clear_error_when_workspace_dir_is_none():
+    """If workspace_dir is None, build() raises a ValueError that says so."""
+    adapter = TurtleBot4Adapter(
+        ip="192.168.50.31",
+        ssh_user="ubuntu",
+        ssh_pass="turtlebot4",
+        namespace="turtlebot468",
+        workspace_dir=None,
+    )
+    with pytest.raises(ValueError, match="workspace_dir"):
+        adapter.build()

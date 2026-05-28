@@ -36,7 +36,7 @@ class TurtleBot4Adapter(RobotAdapter):
     ssh_user: str
     ssh_pass: str
     namespace: str
-    workspace_dir: str
+    workspace_dir: str | None = None
 
     def check_clock_offset(self) -> float:
         """Return ``local_time - robot_time`` in seconds (positive = robot is behind)."""
@@ -127,6 +127,11 @@ class TurtleBot4Adapter(RobotAdapter):
 
     def build(self) -> None:
         """Run ``colcon build --packages-select campus_nav_llm`` in the workspace."""
+        if self.workspace_dir is None:
+            raise ValueError(
+                "workspace_dir is required for build(); set it in config.yaml "
+                "under workspace.dir or pass workspace_dir=... to the adapter."
+            )
         result = run_local(
             [
                 "colcon",
