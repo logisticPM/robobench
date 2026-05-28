@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import shlex
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -37,6 +37,10 @@ class TurtleBot4Adapter(RobotAdapter):
     ssh_pass: str
     namespace: str
     workspace_dir: str | None = None
+    build_packages: list[str] = field(default_factory=lambda: ["campus_nav_llm"])
+    launch_package: str = "campus_nav_llm"
+    launch_file: str = "navigation_mode.launch.py"
+    user_input_topic: str = "/user_input"
 
     def check_clock_offset(self) -> float:
         """Return ``local_time - robot_time`` in seconds (positive = robot is behind)."""

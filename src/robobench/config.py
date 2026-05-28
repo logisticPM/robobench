@@ -11,7 +11,7 @@ import yaml
 def load_adapter_config(path: Path) -> dict:
     """Read ``config.yaml`` and return the kwargs an adapter constructor expects.
 
-    Schema (subset relevant to v0.2)::
+    Schema (v0.2.1)::
 
         robot:
           ip: "192.168.50.31"
@@ -19,24 +19,40 @@ def load_adapter_config(path: Path) -> dict:
           ssh_pass: "turtlebot4"
           namespace: "turtlebot468"
         workspace:
-          dir: "~/CS5335TurtleBot"
+          dir: "~/my_workspace"
+        build:                              # optional, defaults to campus_guide
+          packages: ["campus_nav_llm"]
+        launch:                             # optional, defaults to campus_guide
+          package: "campus_nav_llm"
+          file: "navigation_mode.launch.py"
+        health:                             # optional, defaults to campus_guide
+          user_input_topic: "/user_input"
     """
     if not path.exists():
         raise FileNotFoundError(path)
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     robot = data.get("robot") or {}
     workspace = data.get("workspace") or {}
+    build = data.get("build") or {}
+    launch = data.get("launch") or {}
+    health = data.get("health") or {}
 
     required = ("ip", "ssh_user", "ssh_pass", "namespace")
     missing = [k for k in required if not robot.get(k)]
     if missing:
         raise ValueError(f"config.yaml missing required robot.{{}} field(s): {', '.join(missing)}")
 
-    workspace_dir = workspace.get("dir", "~/robobench_ws")
+    workspace_dir_raw = workspace.get("dir")
+    workspace_dir = os.path.expanduser(workspace_dir_raw) if workspace_dir_raw else None
+
     return {
         "ip": robot["ip"],
         "ssh_user": robot["ssh_user"],
         "ssh_pass": robot["ssh_pass"],
         "namespace": robot["namespace"],
-        "workspace_dir": os.path.expanduser(workspace_dir),
+        "workspace_dir": workspace_dir,
+        "build_packages": build.get("packages", ["campus_nav_llm"]),
+        "launch_package": launch.get("package", "campus_nav_llm"),
+        "launch_file": launch.get("file", "navigation_mode.launch.py"),
+        "user_input_topic": health.get("user_input_topic", "/user_input"),
     }

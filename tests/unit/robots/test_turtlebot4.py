@@ -352,3 +352,37 @@ def test_build_raises_clear_error_when_workspace_dir_is_none():
     )
     with pytest.raises(ValueError, match="workspace_dir"):
         adapter.build()
+
+
+def test_adapter_accepts_optional_build_launch_health_fields():
+    """The dataclass accepts the new optional fields with v0.2-compatible defaults."""
+    a = TurtleBot4Adapter(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="ns",
+        workspace_dir="/ws",
+    )
+    assert a.build_packages == ["campus_nav_llm"]
+    assert a.launch_package == "campus_nav_llm"
+    assert a.launch_file == "navigation_mode.launch.py"
+    assert a.user_input_topic == "/user_input"
+
+
+def test_adapter_accepts_explicit_build_launch_health_fields():
+    """Explicit field values override the defaults."""
+    a = TurtleBot4Adapter(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="ns",
+        workspace_dir="/ws",
+        build_packages=["my_pkg"],
+        launch_package="my_pkg",
+        launch_file="custom.launch.py",
+        user_input_topic="/custom_topic",
+    )
+    assert a.build_packages == ["my_pkg"]
+    assert a.launch_package == "my_pkg"
+    assert a.launch_file == "custom.launch.py"
+    assert a.user_input_topic == "/custom_topic"
