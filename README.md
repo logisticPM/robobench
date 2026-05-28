@@ -11,36 +11,44 @@ gone wrong, clock drift breaking TF, lifecycle nodes refusing to activate,
 sensors silently dropping out. The actual research starts after that's
 working. Robobench aims to compress that fight from days to minutes.
 
-## What v0.1 ships
+## What v0.2 ships
 
-- A `RobotAdapter` interface that any ROS2 robot can implement.
-- A first reference adapter: TurtleBot4.
-- A `robobench` CLI that runs hardware diagnostics against a real robot.
-- A runnable end-to-end example (`examples/campus_guide/`) imported from
-  upstream as a reference integration to benchmark against.
-- A baseline web dashboard + speech UI (`ui/`) to be extended in Phase C.
+- `RobotAdapter` interface — 7 methods, all implemented on TurtleBot4.
+- `TurtleBot4Adapter` covers clock sync (chrony + Create3 NTP), build, launch,
+  lifecycle activation, initial pose, structured health check, and graceful shutdown.
+- CLI: `robobench check / bringup / health / shutdown`, plus the
+  `robobench-lifecycle-activator` ROS2 node entry point.
+- Two tutorials: 10-minute clock check, full bring-up walkthrough.
+- Reference integration (`examples/campus_guide/`) + UI baseline (`ui/`).
 
-## What v0.1 does NOT ship (and where it's going)
+## What v0.2 does NOT ship (and where it's going)
 
 | Coming in | Feature |
 |-----------|---------|
-| Phase B   | Full extraction of `deploy.sh` into adapter methods |
-| Phase C   | Diagnostic panels (DDS visibility, TF tree, sensor health, clock) |
-| Phase C   | Browser-based bring-up wizard replacing `deploy.sh` |
+| Phase C   | Diagnostic panels (DDS visibility, TF tree, sensor health) |
+| Phase C   | Browser-based bring-up wizard replacing `robobench bringup` |
 | Phase D   | MkDocs tutorial site + GitHub Pages |
 | Phase E   | Simulation support (Gazebo / Ignition) |
 | Phase E+  | Additional robot adapters (TurtleBot3, Jackal, custom) |
 
-## Install (v0.1)
+## Install
 
 ```bash
 pip install -e .
 robobench --help
 ```
 
+Sub-commands:
+
+- `robobench check` — quick clock diagnostic (no ROS2 required)
+- `robobench bringup` — full Nav2 bring-up (requires ROS2 workspace)
+- `robobench health` — JSON health report
+- `robobench shutdown` — graceful stop
+
 ## Quick start
 
-See [docs/tutorials/connect-turtlebot4.md](docs/tutorials/connect-turtlebot4.md).
+- [10-minute clock check](docs/tutorials/connect-turtlebot4.md)
+- [Full bring-up walkthrough](docs/tutorials/bringup-walkthrough.md)
 
 ## Contributing
 
