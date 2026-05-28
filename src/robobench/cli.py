@@ -62,6 +62,11 @@ def _build_parser() -> argparse.ArgumentParser:
     health.add_argument("--config", required=True)
     health.set_defaults(func=_cmd_health)
 
+    shutdown = subparsers.add_parser("shutdown", help="Stop the navigation stack cleanly.")
+    shutdown.add_argument("--robot", required=True, choices=["turtlebot4"])
+    shutdown.add_argument("--config", required=True)
+    shutdown.set_defaults(func=_cmd_shutdown)
+
     return parser
 
 
@@ -130,6 +135,16 @@ def _cmd_health(args: argparse.Namespace) -> int:
     report = adapter.health_check()
     print(json.dumps(report, indent=2))
     return 0 if report["overall"] != "UNHEALTHY" else 1
+
+
+def _cmd_shutdown(args: argparse.Namespace) -> int:
+    if args.robot != "turtlebot4":
+        print(f"unsupported robot: {args.robot}", file=sys.stderr)
+        return 2
+    adapter = TurtleBot4Adapter(**load_adapter_config(Path(args.config)))
+    adapter.shutdown()
+    print("shutdown complete")
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -121,3 +121,14 @@ def test_health_prints_json_report(mocker, tmp_path, capsys):
     assert rc == 0
     assert '"overall": "HEALTHY"' in out
     assert '"clock_offset"' in out
+
+
+def test_shutdown_calls_adapter_shutdown(mocker, tmp_path):
+    fake_adapter = MagicMock()
+    mocker.patch("robobench.cli.TurtleBot4Adapter", return_value=fake_adapter)
+    cfg = _write_config(tmp_path)
+
+    rc = main(["shutdown", "--robot", "turtlebot4", "--config", str(cfg)])
+
+    assert rc == 0
+    fake_adapter.shutdown.assert_called_once()
