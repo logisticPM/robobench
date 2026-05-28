@@ -35,6 +35,7 @@ dev = [
 
 [project.scripts]
 robobench = "robobench.cli:main"
+robobench-lifecycle-activator = "robobench.diagnostics.lifecycle_activator:main"
 
 [project.urls]
 Homepage = "https://github.com/logisticPM/robobench"
