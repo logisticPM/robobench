@@ -7,11 +7,11 @@ v0.1 implements only ``check_clock_offset``. Remaining methods raise
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from robobench.adapter_base import RobotAdapter
+from robobench.ssh import SSHClient
 
 
 def _now_utc() -> datetime:
@@ -35,19 +35,8 @@ class TurtleBot4Adapter(RobotAdapter):
 
     def check_clock_offset(self) -> float:
         """Return ``local_time - robot_time`` in seconds (positive = robot is behind)."""
-        cmd = [
-            "sshpass",
-            "-p",
-            self.ssh_pass,
-            "ssh",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            f"{self.ssh_user}@{self.ip}",
-            "date +%s",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
+        with SSHClient(self.ip, self.ssh_user, self.ssh_pass) as ssh:
+            result = ssh.run(["date", "+%s"], timeout=10)
         if result.returncode != 0:
             raise RuntimeError(
                 f"SSH to {self.ip} failed (rc={result.returncode}): {result.stderr.strip()}"

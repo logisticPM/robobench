@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
@@ -65,34 +64,34 @@ def _adapter():
 
 
 def test_check_clock_offset_returns_seconds(mocker):
-    """SSHs to the robot, reads epoch seconds, subtracts from local time."""
+    """Opens SSH to the robot, reads epoch via `date +%s`, subtracts from local time."""
     fake_local = datetime(2026, 5, 27, 12, 0, 10, tzinfo=UTC)
-    mocker.patch(
-        "robobench.robots.turtlebot4._now_utc",
-        return_value=fake_local,
-    )
-    completed = MagicMock(spec=subprocess.CompletedProcess)
-    completed.returncode = 0
-    completed.stdout = "1779883205\n"
-    completed.stderr = ""
-    run_mock = mocker.patch("robobench.robots.turtlebot4.subprocess.run", return_value=completed)
+    mocker.patch("robobench.robots.turtlebot4._now_utc", return_value=fake_local)
+
+    fake_client = MagicMock()
+    fake_client.__enter__.return_value = fake_client
+    fake_client.__exit__.return_value = None
+    fake_client.run.return_value = MagicMock(returncode=0, stdout="1779883205\n", stderr="")
+    sshclient_ctor = mocker.patch("robobench.robots.turtlebot4.SSHClient", return_value=fake_client)
 
     offset = _adapter().check_clock_offset()
 
     assert offset == pytest.approx(5.0, abs=0.01)
-    args, kwargs = run_mock.call_args
-    assert args[0][0] == "sshpass"
-    assert "ssh" in args[0]
-    assert "ubuntu@192.168.50.31" in args[0]
+    sshclient_ctor.assert_called_once_with("192.168.50.31", "ubuntu", "turtlebot4")
+    fake_client.run.assert_called_once_with(["date", "+%s"], timeout=10)
 
 
 def test_check_clock_offset_raises_on_ssh_failure(mocker):
-    """A non-zero SSH exit becomes a RuntimeError with stderr in the message."""
-    completed = MagicMock(spec=subprocess.CompletedProcess)
-    completed.returncode = 255
-    completed.stdout = ""
-    completed.stderr = "ssh: connect to host 192.168.50.31 port 22: No route to host"
-    mocker.patch("robobench.robots.turtlebot4.subprocess.run", return_value=completed)
+    """A non-zero remote exit becomes a RuntimeError with stderr in the message."""
+    fake_client = MagicMock()
+    fake_client.__enter__.return_value = fake_client
+    fake_client.__exit__.return_value = None
+    fake_client.run.return_value = MagicMock(
+        returncode=127,
+        stdout="",
+        stderr="bash: date: command not found",
+    )
+    mocker.patch("robobench.robots.turtlebot4.SSHClient", return_value=fake_client)
 
-    with pytest.raises(RuntimeError, match="No route to host"):
+    with pytest.raises(RuntimeError, match="date: command not found"):
         _adapter().check_clock_offset()
