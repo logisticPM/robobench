@@ -152,3 +152,21 @@ def test_dashboard_subcommand_starts_server(mocker, tmp_path):
     assert thread_mock.call_args.kwargs.get("daemon") is True
     run_mock.assert_called_once()
     assert run_mock.call_args.kwargs.get("port") == 9090  # noqa: PLR2004
+
+
+def test_dashboard_demo_flag_seeds_state_and_skips_bridge(mocker, tmp_path):
+    """`robobench dashboard --demo` seeds demo state and does NOT start the bridge thread."""
+    cfg = _write_config(tmp_path)
+
+    fake_state = MagicMock()
+    mocker.patch("robobench.cli.DiagnosticState", return_value=fake_state)
+    mocker.patch("robobench.cli.create_app", return_value="APP")
+    seed_mock = mocker.patch("robobench.cli.seed_demo_state")
+    thread_mock = mocker.patch("robobench.cli.threading.Thread")
+    mocker.patch("robobench.cli.uvicorn.run")
+
+    rc = main(["dashboard", "--robot", "turtlebot4", "--config", str(cfg), "--demo"])
+
+    assert rc == 0
+    seed_mock.assert_called_once()
+    thread_mock.assert_not_called()

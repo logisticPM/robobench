@@ -24,6 +24,7 @@ from robobench.robots.turtlebot4 import TurtleBot4Adapter
 try:
     import uvicorn
 
+    from robobench.panels.demo import seed_demo_state
     from robobench.panels.server import create_app
     from robobench.panels.state import DiagnosticState
 
@@ -83,6 +84,11 @@ def _build_parser() -> argparse.ArgumentParser:
     dashboard.add_argument("--config", required=True)
     dashboard.add_argument("--port", type=int, default=8080)
     dashboard.add_argument("--host", default="127.0.0.1")
+    dashboard.add_argument(
+        "--demo",
+        action="store_true",
+        help="Seed synthetic data instead of connecting to a robot (no ROS2 needed).",
+    )
     dashboard.set_defaults(func=_cmd_dashboard)
 
     return parser
@@ -203,7 +209,13 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
     namespace = kwargs["namespace"]
 
     state = DiagnosticState()
-    threading.Thread(target=_safe_run_bridge, args=(state, namespace), daemon=True).start()
+    if args.demo:
+        import time  # noqa: PLC0415
+
+        seed_demo_state(state, now=time.time())
+        print("[dashboard] demo mode — serving synthetic data (no robot needed)")
+    else:
+        threading.Thread(target=_safe_run_bridge, args=(state, namespace), daemon=True).start()
 
     app = create_app(state, namespace=namespace, expected_nodes=_DEFAULT_EXPECTED_NODES)
     print(f"robobench dashboard on http://{args.host}:{args.port}")
