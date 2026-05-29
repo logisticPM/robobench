@@ -5,6 +5,39 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.1a0] — 2026-05-28
+
+### Added
+
+- `robobench.ssh.check_workstation_chrony_config` — verifies the workstation's
+  chrony.conf has the `allow` and `local stratum` lines required for the
+  robot to follow it as an NTP source. Surfaces as `workstation_chrony` in
+  `setup_clock_sync`'s report.
+- `TurtleBot4Adapter` gained four optional config fields with v0.2-compatible
+  defaults: `build_packages`, `launch_package`, `launch_file`,
+  `user_input_topic`. Set them in `config.yaml` (`build.packages`,
+  `launch.package`, `launch.file`, `health.user_input_topic`) to point
+  robobench at any ROS2 workspace — not just campus_guide.
+- `docs/architecture.md` — documents the ABC, paramiko, lazy rclpy, and
+  subprocess design decisions for contributors.
+
+### Changed
+
+- `TurtleBot4Adapter.workspace_dir` is now `str | None` (was `str` with a
+  misleading `~/CS5335TurtleBot` default). `build()` raises a clear
+  `ValueError` if it's needed but not set.
+- `build()` / `launch()` / `health_check()` no longer hard-code
+  `campus_nav_llm`-specific names; they read from the new dataclass fields.
+- `ui/README.md` now leads with a status banner clarifying the dashboard
+  and speech UI are imported v0 baseline and not yet wired into robobench.
+
+### Fixed
+
+- `setup_clock_sync` no longer silently reports success when the workstation
+  itself isn't configured to serve NTP. The report's new `workstation_chrony`
+  field surfaces a `WARN` with an actionable fix when chrony.conf is missing
+  the required lines.
+
 ## [0.2.0a0] — 2026-05-27
 
 ### Added
