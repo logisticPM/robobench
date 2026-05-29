@@ -76,12 +76,26 @@ def build_tf_graph(
     return {"nodes": nodes, "edges": edges, "broken": broken}
 
 
+def _normalize_node(name: str) -> str:
+    """Normalize a ROS node name to leading-slash form.
+
+    ``ros2 node list`` and rclpy's ``get_node_names_and_namespaces`` are
+    inconsistent about the leading ``/``; config-supplied expected-node lists
+    are too. Normalizing both sides before comparison avoids a silent
+    all-missing false positive.
+    """
+    return name if name.startswith("/") else f"/{name}"
+
+
 def build_dds_graph(visible_nodes: list[str], expected_nodes: list[str]) -> dict:
     """Build a DDS node-presence graph.
 
     Every node is classified ``present`` (currently discoverable) or
     ``missing`` (expected but not seen — the usual symptom of a node that
     crashed or never came up under FastDDS Discovery Server).
+
+    Node names are normalized to leading-slash form on both sides, so
+    ``map_server`` and ``/map_server`` compare equal.
 
     Returns::
 
@@ -90,12 +104,13 @@ def build_dds_graph(visible_nodes: list[str], expected_nodes: list[str]) -> dict
           "missing": ["/planner_server"],   # expected but not visible
         }
     """
-    visible_set = set(visible_nodes)
-    all_names = list(dict.fromkeys([*visible_nodes, *expected_nodes]))
+    visible_set = {_normalize_node(n) for n in visible_nodes}
+    expected_norm = [_normalize_node(n) for n in expected_nodes]
+    all_names = list(dict.fromkeys(_normalize_node(n) for n in [*visible_nodes, *expected_nodes]))
 
     nodes: list[dict] = []
     for name in all_names:
         status = "present" if name in visible_set else "missing"
         nodes.append({"name": name, "status": status})
-    missing = [n for n in expected_nodes if n not in visible_set]
+    missing = [n for n in expected_norm if n not in visible_set]
     return {"nodes": nodes, "missing": missing}

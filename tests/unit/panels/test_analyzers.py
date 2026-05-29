@@ -93,3 +93,12 @@ def test_build_dds_graph_no_expected_lists_all_present():
     assert {n["name"] for n in graph["nodes"]} == {"/a", "/b"}
     assert all(n["status"] == "present" for n in graph["nodes"])
     assert graph["missing"] == []
+
+
+def test_build_dds_graph_normalizes_slash_prefix():
+    """Mixed slash/no-slash names compare equal after normalization."""
+    graph = build_dds_graph(visible_nodes=["/amcl"], expected_nodes=["amcl", "planner_server"])
+    present = {n["name"]: n["status"] for n in graph["nodes"]}
+    assert present["/amcl"] == "present"
+    assert present["/planner_server"] == "missing"
+    assert graph["missing"] == ["/planner_server"]

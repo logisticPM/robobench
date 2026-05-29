@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from robobench import __version__
+from robobench import __version__, cli
 from robobench.cli import main
 
 # argparse exit code when subcommand is required but not provided
@@ -155,12 +155,13 @@ def test_dashboard_subcommand_starts_server(mocker, tmp_path):
 
 
 def test_dashboard_demo_flag_seeds_state_and_skips_bridge(mocker, tmp_path):
-    """`robobench dashboard --demo` seeds demo state and does NOT start the bridge thread."""
+    """`robobench dashboard --demo` seeds demo state + starts the demo refresh
+    loop, NOT the bridge."""
     cfg = _write_config(tmp_path)
 
     fake_state = MagicMock()
     mocker.patch("robobench.cli.DiagnosticState", return_value=fake_state)
-    mocker.patch("robobench.cli.create_app", return_value="APP")
+    create_app_mock = mocker.patch("robobench.cli.create_app", return_value="APP")
     seed_mock = mocker.patch("robobench.cli.seed_demo_state")
     thread_mock = mocker.patch("robobench.cli.threading.Thread")
     mocker.patch("robobench.cli.uvicorn.run")
@@ -169,4 +170,9 @@ def test_dashboard_demo_flag_seeds_state_and_skips_bridge(mocker, tmp_path):
 
     assert rc == 0
     seed_mock.assert_called_once()
-    thread_mock.assert_not_called()
+    # the thread started in demo mode is the refresh loop, NOT the bridge
+    thread_mock.assert_called_once()
+    assert thread_mock.call_args.kwargs.get("target") is cli._demo_refresh_loop
+    assert thread_mock.call_args.kwargs.get("daemon") is True
+    # demo mode checks against the demo's own expected-node set (self-consistent)
+    assert create_app_mock.call_args.kwargs.get("expected_nodes") is cli.DEMO_EXPECTED_NODES

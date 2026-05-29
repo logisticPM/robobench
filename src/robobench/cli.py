@@ -24,7 +24,7 @@ from robobench.robots.turtlebot4 import TurtleBot4Adapter
 try:
     import uvicorn
 
-    from robobench.panels.demo import seed_demo_state
+    from robobench.panels.demo import DEMO_EXPECTED_NODES, seed_demo_state
     from robobench.panels.server import create_app
     from robobench.panels.state import DiagnosticState
 
@@ -172,14 +172,14 @@ def _cmd_shutdown(args: argparse.Namespace) -> int:
 
 
 _DEFAULT_EXPECTED_NODES = [
-    "map_server",
-    "amcl",
-    "controller_server",
-    "planner_server",
-    "behavior_server",
-    "bt_navigator",
-    "waypoint_follower",
-    "velocity_smoother",
+    "/map_server",
+    "/amcl",
+    "/controller_server",
+    "/planner_server",
+    "/behavior_server",
+    "/bt_navigator",
+    "/waypoint_follower",
+    "/velocity_smoother",
 ]
 
 
@@ -192,6 +192,19 @@ def _safe_run_bridge(state, namespace: str) -> None:
         run_bridge(state, namespace=namespace)
     except RuntimeError as exc:
         print(f"[dashboard] bridge not started: {exc}", file=sys.stderr)
+
+
+def _demo_refresh_loop(state) -> None:
+    """Re-seed demo data on a timer so the 'fresh' TF edges stay fresh.
+
+    A real robot continuously republishes TF; demo mode must mimic that or the
+    fresh transforms go stale (the panel checks freshness against wall-clock
+    time, which keeps advancing). The deliberately-stale edge stays stale."""
+    import time  # noqa: PLC0415
+
+    while True:  # pragma: no cover
+        time.sleep(0.5)
+        seed_demo_state(state, now=time.time())
 
 
 def _cmd_dashboard(args: argparse.Namespace) -> int:
@@ -213,11 +226,14 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
         import time  # noqa: PLC0415
 
         seed_demo_state(state, now=time.time())
+        threading.Thread(target=_demo_refresh_loop, args=(state,), daemon=True).start()
+        expected_nodes = DEMO_EXPECTED_NODES
         print("[dashboard] demo mode — serving synthetic data (no robot needed)")
     else:
         threading.Thread(target=_safe_run_bridge, args=(state, namespace), daemon=True).start()
+        expected_nodes = _DEFAULT_EXPECTED_NODES
 
-    app = create_app(state, namespace=namespace, expected_nodes=_DEFAULT_EXPECTED_NODES)
+    app = create_app(state, namespace=namespace, expected_nodes=expected_nodes)
     print(f"robobench dashboard on http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port)
     return 0
