@@ -65,6 +65,58 @@ field with the failure mode. Common patterns:
   Re-run `robobench-lifecycle-activator` and read its log under
   `~/.campus_nav_logs/`.
 
+## Customizing for your own workspace
+
+The defaults assume you're using the upstream `campus_guide` package layout.
+If your ROS2 workspace has different package names or launch files, extend
+your `config.yaml` with optional `build`, `launch`, and `health` sections:
+
+```yaml
+robot:
+  ip: "192.168.50.31"
+  ssh_user: "ubuntu"
+  ssh_pass: "turtlebot4"
+  namespace: "turtlebot468"
+
+workspace:
+  dir: "~/my_workspace"
+
+build:
+  packages: ["my_nav_pkg", "my_safety_pkg"]   # default: ["campus_nav_llm"]
+
+launch:
+  package: "my_nav_pkg"                       # default: "campus_nav_llm"
+  file: "bringup.launch.py"                   # default: "navigation_mode.launch.py"
+
+health:
+  user_input_topic: "/my_cmd_topic"           # default: "/user_input"
+```
+
+Any field you omit falls back to the campus_guide default, so a minimal
+`config.yaml` keeps working unchanged.
+
+## Workstation clock-sync prerequisite
+
+`robobench bringup` configures `chrony` on the robot, but the workstation
+itself must be set up to serve NTP. The platform now checks this for you:
+`setup_clock_sync`'s report includes a `workstation_chrony` entry with
+status `OK` / `WARN` / `SKIPPED`.
+
+If you see `WARN`, add these lines to `/etc/chrony/chrony.conf` and restart
+chrony:
+
+```text
+allow 192.168.0.0/16
+local stratum 10
+```
+
+```bash
+sudo systemctl restart chrony
+```
+
+`SKIPPED` means chrony isn't installed on the workstation (common on
+Windows). Use WSL or install chrony on Linux/macOS before running bringup.
+
 ## Stopping
 
 ```bash
