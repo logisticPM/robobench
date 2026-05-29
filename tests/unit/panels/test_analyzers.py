@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from robobench.panels.analyzers import (
+    build_dds_graph,
     build_tf_graph,
     classify_clock_offset,
     compute_topic_rate,
@@ -71,3 +72,24 @@ def test_build_tf_graph_flags_stale_edges():
 def test_build_tf_graph_empty():
     graph = build_tf_graph([], now=0.0, stale_after=1.0)
     assert graph == {"nodes": [], "edges": [], "broken": []}
+
+
+def test_build_dds_graph_marks_expected_nodes_present_and_missing():
+    """Given visible nodes and an expected set, mark each present/missing."""
+    visible = ["/amcl", "/controller_server", "/bt_navigator"]
+    expected = ["/amcl", "/controller_server", "/planner_server"]
+    graph = build_dds_graph(visible_nodes=visible, expected_nodes=expected)
+
+    present = {n["name"]: n for n in graph["nodes"]}
+    assert present["/amcl"]["status"] == "present"
+    assert present["/controller_server"]["status"] == "present"
+    assert present["/planner_server"]["status"] == "missing"
+    assert present["/bt_navigator"]["status"] == "present"
+    assert graph["missing"] == ["/planner_server"]
+
+
+def test_build_dds_graph_no_expected_lists_all_present():
+    graph = build_dds_graph(visible_nodes=["/a", "/b"], expected_nodes=[])
+    assert {n["name"] for n in graph["nodes"]} == {"/a", "/b"}
+    assert all(n["status"] == "present" for n in graph["nodes"])
+    assert graph["missing"] == []

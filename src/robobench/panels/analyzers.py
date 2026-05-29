@@ -74,3 +74,28 @@ def build_tf_graph(
         if stale:
             broken.append(f"{parent}->{child}")
     return {"nodes": nodes, "edges": edges, "broken": broken}
+
+
+def build_dds_graph(visible_nodes: list[str], expected_nodes: list[str]) -> dict:
+    """Build a DDS node-presence graph.
+
+    Every node is classified ``present`` (currently discoverable) or
+    ``missing`` (expected but not seen — the usual symptom of a node that
+    crashed or never came up under FastDDS Discovery Server).
+
+    Returns::
+
+        {
+          "nodes": [{"name": "/amcl", "status": "present"}, ...],
+          "missing": ["/planner_server"],   # expected but not visible
+        }
+    """
+    visible_set = set(visible_nodes)
+    all_names = list(dict.fromkeys([*visible_nodes, *expected_nodes]))
+
+    nodes: list[dict] = []
+    for name in all_names:
+        status = "present" if name in visible_set else "missing"
+        nodes.append({"name": name, "status": status})
+    missing = [n for n in expected_nodes if n not in visible_set]
+    return {"nodes": nodes, "missing": missing}
