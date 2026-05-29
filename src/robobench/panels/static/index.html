@@ -1,5 +1,42 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>robobench diagnostics</title></head>
-<body><h1>robobench diagnostics</h1></body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>robobench diagnostics</title>
+  <link rel="stylesheet" href="/static/lib/uPlot.min.css" />
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="/static/lib/cytoscape.min.js"></script>
+  <script src="/static/lib/uPlot.iife.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>robobench diagnostics</h1>
+    <span id="conn" class="conn">connecting…</span>
+  </header>
+  <main class="grid">
+    <section id="clock-panel" class="panel"></section>
+    <section id="sensor-panel" class="panel"></section>
+    <section id="tf-panel" class="panel"></section>
+    <section id="dds-panel" class="panel"></section>
+  </main>
+  <script type="module">
+    import { initClockPanel } from "/static/panels/clock.js";
+    import { initSensorPanel } from "/static/panels/sensor-rate.js";
+    import { initTfPanel } from "/static/panels/tf-tree.js";
+    import { initDdsPanel } from "/static/panels/dds-graph.js";
+
+    initClockPanel(document.getElementById("clock-panel"));
+    initSensorPanel(document.getElementById("sensor-panel"));
+    initTfPanel(document.getElementById("tf-panel"));
+    initDdsPanel(document.getElementById("dds-panel"));
+
+    // Connection indicator: green once any panel fetch succeeds.
+    window.addEventListener("robobench:ok", () => {
+      const c = document.getElementById("conn");
+      c.textContent = "connected";
+      c.classList.add("ok");
+    });
+  </script>
+</body>
 </html>
