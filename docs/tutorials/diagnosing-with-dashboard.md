@@ -74,8 +74,31 @@ just a red light.
 | tf | no stale edges | — | any edge stamp older than 1s |
 | dds | all expected nodes present | — | any expected node missing |
 
+## The visual dashboard
+
+As of v0.4, `robobench dashboard` serves a web UI at the root URL — open
+`http://localhost:8080/` in a browser. Four live panels:
+
+- **Clock offset** — OK/WARN/FAIL pill + current offset.
+- **Sensor rate** — a live sparkline (uPlot) of LiDAR scan Hz.
+- **TF tree** — the frame graph (cytoscape); stale/broken edges turn red.
+- **DDS nodes** — expected Nav2 nodes; missing ones turn red.
+
+Each panel shows the failure-catalog fixes inline when it's red.
+
+### Try it without a robot
+
+```bash
+robobench dashboard --robot turtlebot4 --config ./config.yaml --demo
+```
+
+`--demo` seeds synthetic data (a healthy clock + sensor, a deliberately broken
+TF edge, a missing Nav2 node) so you can see every panel — including its
+red/fix states — with no hardware and no ROS2 installed. Great for trying
+robobench before you have a robot on the bench.
+
 ## What's next
 
-Phase C-2 adds the visual frontend: a TF tree you can see (cytoscape.js), a
-DDS node graph, and live sensor sparklines (uPlot) — all consuming these same
-endpoints.
+Phase D adds a browser-driven bring-up wizard (interactive, one-click fixes)
+and a second robot adapter (TurtleBot3) to prove the `RobotAdapter` interface
+generalizes.

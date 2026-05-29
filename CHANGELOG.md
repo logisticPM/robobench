@@ -5,6 +5,36 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0a0] — 2026-05-29
+
+### Added
+
+- **Visual diagnostic dashboard** served at `/` by `robobench dashboard`:
+  vanilla-JS, no build step, native ES modules. Four live panels (clock,
+  sensor-rate sparkline, TF tree, DDS node graph) polling the v0.3 panel API,
+  each showing failure-catalog fixes inline when red.
+- Vendored `cytoscape.js` (TF tree + DDS graph) and `uPlot` (sensor sparkline)
+  under `src/robobench/panels/static/lib/` — works offline / on locked-down
+  lab networks. Both MIT (see NOTICE).
+- `robobench dashboard --demo` + `robobench.panels.demo.seed_demo_state` —
+  populates synthetic data so the whole dashboard is viewable with no robot
+  and no ROS2. A refresh loop keeps the demo's "fresh" TF edges fresh.
+- FastAPI now serves the packaged static frontend (`StaticFiles` + `/` route);
+  `static/**/*` ships in the wheel.
+- `DiagnosticState.clear_scans()`.
+
+### Fixed
+
+- `build_dds_graph` now normalizes node-name slash prefixes, so `/map_server`
+  and `map_server` compare equal (avoids a silent all-missing false positive).
+- Demo mode no longer inflates the sensor rate on re-seed, and renders the TF
+  tree correctly (explicit `cy.fit`); cytoscape graphs only rebuild when their
+  structure changes. (All four found via real-browser verification.)
+
+### Notes
+
+- WebSocket live-push is still deferred; the frontend polls every 1–2s.
+
 ## [0.3.0a0] — 2026-05-28
 
 ### Added
