@@ -10,9 +10,16 @@ testable with a plain injected state object.
 
 from __future__ import annotations
 
+import time
+
 from fastapi import FastAPI
 
-from robobench.panels.analyzers import classify_clock_offset, compute_topic_rate
+from robobench.panels.analyzers import (
+    build_dds_graph,
+    build_tf_graph,
+    classify_clock_offset,
+    compute_topic_rate,
+)
 from robobench.panels.catalog import lookup_fixes
 from robobench.panels.state import DiagnosticState
 
@@ -63,5 +70,20 @@ def create_app(
                 "fixes": lookup_fixes("sensor_rate", status),
             }
         }
+
+    @app.get("/api/panels/tf")
+    def tf_panel() -> dict:
+        graph = build_tf_graph(app.state.diag.tf_transforms(), now=time.time(), stale_after=1.0)
+        status = "FAIL" if graph["broken"] else "OK"
+        return {**graph, "status": status, "fixes": lookup_fixes("tf_tree", status)}
+
+    @app.get("/api/panels/dds")
+    def dds_panel() -> dict:
+        graph = build_dds_graph(
+            visible_nodes=app.state.diag.node_names(),
+            expected_nodes=app.state.expected_nodes,
+        )
+        status = "FAIL" if graph["missing"] else "OK"
+        return {**graph, "status": status, "fixes": lookup_fixes("dds_graph", status)}
 
     return app

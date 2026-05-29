@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from fastapi.testclient import TestClient
 
 from robobench.panels.server import create_app
@@ -62,3 +64,41 @@ def test_sensors_panel_fail_when_no_data_attaches_fixes():
     assert body["scan"]["rate_hz"] == 0.0
     assert body["scan"]["status"] == "FAIL"
     assert len(body["scan"]["fixes"]) >= 1
+
+
+def test_tf_panel_reports_graph_and_broken_edges():
+    state = DiagnosticState()
+    now = time.time()
+    state.set_tf([("map", "odom", now), ("odom", "base_link", now - 100.0)])
+    body = _client(state).get("/api/panels/tf").json()
+    assert set(body["nodes"]) == {"map", "odom", "base_link"}
+    assert body["broken"] == ["odom->base_link"]
+    assert body["status"] == "FAIL"
+    assert len(body["fixes"]) >= 1
+
+
+def test_tf_panel_ok_when_all_fresh():
+    state = DiagnosticState()
+    now = time.time()
+    state.set_tf([("map", "odom", now)])
+    body = _client(state).get("/api/panels/tf").json()
+    assert body["broken"] == []
+    assert body["status"] == "OK"
+    assert body["fixes"] == []
+
+
+def test_dds_panel_marks_missing_expected_nodes():
+    state = DiagnosticState()
+    state.set_nodes(["/amcl"])
+    body = _client(state, expected_nodes=["/amcl", "/planner_server"]).get("/api/panels/dds").json()
+    assert body["missing"] == ["/planner_server"]
+    assert body["status"] == "FAIL"
+    assert len(body["fixes"]) >= 1
+
+
+def test_dds_panel_ok_when_all_present():
+    state = DiagnosticState()
+    state.set_nodes(["/amcl", "/planner_server"])
+    body = _client(state, expected_nodes=["/amcl", "/planner_server"]).get("/api/panels/dds").json()
+    assert body["missing"] == []
+    assert body["status"] == "OK"
