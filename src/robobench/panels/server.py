@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from robobench.panels.analyzers import classify_clock_offset, compute_topic_rate
+from robobench.panels.catalog import lookup_fixes
 from robobench.panels.state import DiagnosticState
 
 
@@ -29,5 +31,37 @@ def create_app(
     @app.get("/healthz")
     def healthz() -> dict:
         return {"status": "ok"}
+
+    # Scan-rate thresholds (Hz). Below WARN: effectively dead.
+    SCAN_OK_HZ = 5.0
+    SCAN_WARN_HZ = 2.0
+
+    @app.get("/api/panels/clock")
+    def clock_panel() -> dict:
+        offset = app.state.diag.clock_offset()
+        status = classify_clock_offset(offset)
+        return {
+            "status": status,
+            "offset_seconds": offset,
+            "fixes": lookup_fixes("clock_offset", status),
+        }
+
+    @app.get("/api/panels/sensors")
+    def sensors_panel() -> dict:
+        timestamps = list(app.state.diag.scan_timestamps())
+        rate = compute_topic_rate(timestamps)
+        if rate >= SCAN_OK_HZ:
+            status = "OK"
+        elif rate >= SCAN_WARN_HZ:
+            status = "WARN"
+        else:
+            status = "FAIL"
+        return {
+            "scan": {
+                "rate_hz": round(rate, 2),
+                "status": status,
+                "fixes": lookup_fixes("sensor_rate", status),
+            }
+        }
 
     return app
