@@ -32,3 +32,6 @@ build_isolated/
 .env
 .env.local
 *.openrouter_key
+
+# Claude Code local tooling (launch configs, etc.)
+.claude/
