@@ -5,6 +5,28 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0a0] — 2026-05-28
+
+### Added
+
+- `robobench.panels` package — the diagnostic backend:
+  - `DiagnosticState`: thread-safe live-data container.
+  - `analyzers`: pure functions — clock classifier, topic-rate, TF graph with
+    stale-edge detection, DDS node-presence graph.
+  - `catalog`: failure catalog mapping each check to cause/fix/link.
+  - `bridge`: lazy-rclpy node that fills DiagnosticState from `/scan`, `/tf`,
+    and the live node list.
+  - `server`: FastAPI app exposing `/api/panels/{clock,sensors,tf,dds}` JSON
+    endpoints, each enriched with catalog fix hints on WARN/FAIL.
+- `robobench dashboard` CLI subcommand — starts the bridge thread + server.
+- `dashboard` optional dependency group (`pip install 'robobench[dashboard]'`).
+- Tutorial: `docs/tutorials/diagnosing-with-dashboard.md`.
+
+### Notes
+
+- The visual frontend (cytoscape.js TF/DDS graphs, uPlot sensor sparklines) is
+  Phase C-2 — this release ships the JSON API the frontend will consume.
+
 ## [0.2.1a0] — 2026-05-28
 
 ### Added
