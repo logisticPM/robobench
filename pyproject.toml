@@ -53,6 +53,9 @@ Issues = "https://github.com/logisticPM/robobench/issues"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"robobench.panels" = ["static/**/*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

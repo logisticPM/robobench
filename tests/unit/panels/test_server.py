@@ -12,6 +12,7 @@ from robobench.panels.state import DiagnosticState
 # Test constants for magic number suppression
 SMALL_OFFSET = 0.3
 TARGET_SCAN_RATE = 8.0
+HTTP_OK = 200
 
 
 def _client(state: DiagnosticState, expected_nodes=None) -> TestClient:
@@ -102,3 +103,18 @@ def test_dds_panel_ok_when_all_present():
     body = _client(state, expected_nodes=["/amcl", "/planner_server"]).get("/api/panels/dds").json()
     assert body["missing"] == []
     assert body["status"] == "OK"
+
+
+def test_index_route_serves_html():
+    client = _client(DiagnosticState())
+    resp = client.get("/")
+    assert resp.status_code == HTTP_OK
+    assert "text/html" in resp.headers["content-type"]
+    assert "robobench diagnostics" in resp.text
+
+
+def test_static_assets_are_mounted():
+    """The /static mount serves files from the package static dir."""
+    client = _client(DiagnosticState())
+    resp = client.get("/static/index.html")
+    assert resp.status_code == HTTP_OK
