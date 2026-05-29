@@ -29,6 +29,11 @@ class DiagnosticState:
         with self._lock:
             return deque(self._scan_ts)
 
+    def clear_scans(self) -> None:
+        """Drop all recorded scan timestamps (used by demo re-seeding)."""
+        with self._lock:
+            self._scan_ts.clear()
+
     def set_tf(self, transforms: list[tuple[str, str, float]]) -> None:
         with self._lock:
             self._tf = list(transforms)

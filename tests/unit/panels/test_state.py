@@ -44,3 +44,12 @@ def test_snapshot_returns_consistent_copy():
     s.set_nodes(["/a", "/b"])
     assert snap["clock_offset"] == 1.0
     assert snap["nodes"] == ["/a"]
+
+
+def test_clear_scans_empties_the_deque():
+    """clear_scans drops all recorded timestamps (demo re-seed uses it)."""
+    s = DiagnosticState()
+    for t in [1.0, 2.0, 3.0]:
+        s.record_scan(t)
+    s.clear_scans()
+    assert list(s.scan_timestamps()) == []

@@ -31,7 +31,10 @@ def seed_demo_state(state: DiagnosticState, now: float) -> None:
     """
     state.set_clock_offset(0.12)
 
-    # ~10 Hz: 20 samples spanning ~1.9s ending at `now`.
+    # ~10 Hz: 20 samples spanning ~1.9s ending at `now`. Clear first so repeated
+    # demo re-seeding (the refresh loop) replaces rather than accumulates — else
+    # the rate inflates as old timestamps pile up in the deque.
+    state.clear_scans()
     for i in range(20):
         state.record_scan(now - 1.9 + i * 0.1)
 
