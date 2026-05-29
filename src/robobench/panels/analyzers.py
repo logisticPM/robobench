@@ -42,3 +42,35 @@ def compute_topic_rate(timestamps: list[float]) -> float:
         return 0.0
     intervals = len(timestamps) - 1
     return intervals / span
+
+
+def build_tf_graph(
+    transforms: list[tuple[str, str, float]],
+    now: float,
+    stale_after: float = 1.0,
+) -> dict:
+    """Build a TF frame graph from (parent, child, stamp) transforms.
+
+    An edge is "stale" if ``now - stamp > stale_after`` — the #1 symptom of a
+    broken TF tree (a publisher died, or clock skew makes stamps look old).
+
+    Returns::
+
+        {
+          "nodes": ["map", "odom", "base_link"],
+          "edges": [{"parent": "map", "child": "odom", "stale": False}, ...],
+          "broken": ["odom->base_link"],   # parent->child of every stale edge
+        }
+    """
+    nodes: list[str] = []
+    edges: list[dict] = []
+    broken: list[str] = []
+    for parent, child, stamp in transforms:
+        for frame in (parent, child):
+            if frame not in nodes:
+                nodes.append(frame)
+        stale = (now - stamp) > stale_after
+        edges.append({"parent": parent, "child": child, "stale": stale})
+        if stale:
+            broken.append(f"{parent}->{child}")
+    return {"nodes": nodes, "edges": edges, "broken": broken}
