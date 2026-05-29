@@ -132,3 +132,23 @@ def test_shutdown_calls_adapter_shutdown(mocker, tmp_path):
 
     assert rc == 0
     fake_adapter.shutdown.assert_called_once()
+
+
+def test_dashboard_subcommand_starts_server(mocker, tmp_path):
+    """`robobench dashboard` builds the app, starts the bridge thread, runs uvicorn."""
+    cfg = _write_config(tmp_path)
+
+    fake_state = MagicMock()
+    mocker.patch("robobench.cli.DiagnosticState", return_value=fake_state)
+    create_app_mock = mocker.patch("robobench.cli.create_app", return_value="APP")
+    thread_mock = mocker.patch("robobench.cli.threading.Thread")
+    run_mock = mocker.patch("robobench.cli.uvicorn.run")
+
+    rc = main(["dashboard", "--robot", "turtlebot4", "--config", str(cfg), "--port", "9090"])
+
+    assert rc == 0
+    create_app_mock.assert_called_once()
+    thread_mock.assert_called_once()
+    assert thread_mock.call_args.kwargs.get("daemon") is True
+    run_mock.assert_called_once()
+    assert run_mock.call_args.kwargs.get("port") == 9090  # noqa: PLR2004

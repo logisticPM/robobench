@@ -13,12 +13,23 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import threading
 from collections.abc import Sequence
 from pathlib import Path
 
 from robobench import __version__
 from robobench.config import load_adapter_config
 from robobench.robots.turtlebot4 import TurtleBot4Adapter
+
+try:
+    import uvicorn
+
+    from robobench.panels.server import create_app
+    from robobench.panels.state import DiagnosticState
+
+    _DASHBOARD_AVAILABLE = True
+except ImportError:
+    _DASHBOARD_AVAILABLE = False
 
 # Clock offset severity thresholds (seconds)
 _CLOCK_OK_THRESHOLD = 2.0
@@ -66,6 +77,13 @@ def _build_parser() -> argparse.ArgumentParser:
     shutdown.add_argument("--robot", required=True, choices=["turtlebot4"])
     shutdown.add_argument("--config", required=True)
     shutdown.set_defaults(func=_cmd_shutdown)
+
+    dashboard = subparsers.add_parser("dashboard", help="Start the diagnostic dashboard server.")
+    dashboard.add_argument("--robot", required=True, choices=["turtlebot4"])
+    dashboard.add_argument("--config", required=True)
+    dashboard.add_argument("--port", type=int, default=8080)
+    dashboard.add_argument("--host", default="127.0.0.1")
+    dashboard.set_defaults(func=_cmd_dashboard)
 
     return parser
 
@@ -144,6 +162,52 @@ def _cmd_shutdown(args: argparse.Namespace) -> int:
     adapter = TurtleBot4Adapter(**load_adapter_config(Path(args.config)))
     adapter.shutdown()
     print("shutdown complete")
+    return 0
+
+
+_DEFAULT_EXPECTED_NODES = [
+    "map_server",
+    "amcl",
+    "controller_server",
+    "planner_server",
+    "behavior_server",
+    "bt_navigator",
+    "waypoint_follower",
+    "velocity_smoother",
+]
+
+
+def _safe_run_bridge(state, namespace: str) -> None:
+    """Run the bridge, swallowing the no-ROS2 RuntimeError so the web server
+    stays up (panels degrade to UNKNOWN/empty instead of crashing)."""
+    from robobench.panels.bridge import run_bridge  # noqa: PLC0415
+
+    try:
+        run_bridge(state, namespace=namespace)
+    except RuntimeError as exc:
+        print(f"[dashboard] bridge not started: {exc}", file=sys.stderr)
+
+
+def _cmd_dashboard(args: argparse.Namespace) -> int:
+    if not _DASHBOARD_AVAILABLE:
+        print(
+            "dashboard requires the 'dashboard' extra: pip install 'robobench[dashboard]'",
+            file=sys.stderr,
+        )
+        return 2
+    if args.robot != "turtlebot4":
+        print(f"unsupported robot: {args.robot}", file=sys.stderr)
+        return 2
+
+    kwargs = load_adapter_config(Path(args.config))
+    namespace = kwargs["namespace"]
+
+    state = DiagnosticState()
+    threading.Thread(target=_safe_run_bridge, args=(state, namespace), daemon=True).start()
+
+    app = create_app(state, namespace=namespace, expected_nodes=_DEFAULT_EXPECTED_NODES)
+    print(f"robobench dashboard on http://{args.host}:{args.port}")
+    uvicorn.run(app, host=args.host, port=args.port)
     return 0
 
 
