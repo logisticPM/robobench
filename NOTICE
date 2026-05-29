@@ -7,3 +7,9 @@ This product includes work derived from the following projects:
   Used as reference and, where licensed for redistribution, as imported code
   in examples/campus_guide/ and ui/. See examples/campus_guide/README.md for
   the exact license terms of imported portions.
+
+This product bundles the following third-party JavaScript libraries under
+src/robobench/panels/static/lib/ (both MIT licensed):
+
+- cytoscape.js (https://js.cytoscape.org/) — Copyright (c) The Cytoscape Consortium
+- uPlot (https://github.com/leeoniya/uPlot) — Copyright (c) Leon Sorokin
