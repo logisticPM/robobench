@@ -38,15 +38,27 @@ export function initDdsPanel(root) {
     layout: { name: "grid" },
   });
 
+  // Only rebuild + re-layout when the node set / statuses change; re-running
+  // the layout on every poll churns the renderer and can blank it.
+  let lastSig = null;
+
   startPolling("dds", 2000, (data) => {
     renderStatusPill(pill, data.status);
+    renderFixes(fixes, data.fixes);
+
+    const sig = JSON.stringify(data.nodes.map((n) => `${n.name}:${n.status}`));
+    if (sig === lastSig) {
+      return;
+    }
+    lastSig = sig;
+
     const els = data.nodes.map((n) => ({
       data: { id: n.name },
       classes: n.status === "missing" ? "missing" : "",
     }));
     cy.elements().remove();
     cy.add(els);
-    cy.layout({ name: "grid" }).run();
-    renderFixes(fixes, data.fixes);
+    cy.layout({ name: "grid", animate: false, padding: 20 }).run();
+    cy.fit(cy.elements(), 20); // explicit fit — layout fit:true is unreliable here
   });
 }

@@ -48,8 +48,23 @@ export function initTfPanel(root) {
     layout: { name: "breadthfirst", directed: true },
   });
 
+  // Only rebuild + re-layout the graph when its structure actually changes;
+  // re-running the layout on every poll churns the renderer and can blank it.
+  let lastSig = null;
+
   startPolling("tf", 2000, (data) => {
     renderStatusPill(pill, data.status);
+    renderFixes(fixes, data.fixes);
+
+    const sig = JSON.stringify({
+      n: data.nodes,
+      e: data.edges.map((e) => `${e.parent}->${e.child}:${e.stale ? 1 : 0}`),
+    });
+    if (sig === lastSig) {
+      return;
+    }
+    lastSig = sig;
+
     const els = [];
     for (const n of data.nodes) {
       els.push({ data: { id: n } });
@@ -62,7 +77,7 @@ export function initTfPanel(root) {
     }
     cy.elements().remove();
     cy.add(els);
-    cy.layout({ name: "breadthfirst", directed: true }).run();
-    renderFixes(fixes, data.fixes);
+    cy.layout({ name: "breadthfirst", directed: true, animate: false, padding: 20 }).run();
+    cy.fit(cy.elements(), 20); // explicit fit — layout fit:true is unreliable here
   });
 }
