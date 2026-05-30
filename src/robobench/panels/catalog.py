@@ -52,6 +52,12 @@ FAILURE_CATALOG: dict[str, list[dict]] = {
             "often a symptom of clock drift, not a missing publisher.",
             "link": None,
         },
+        {
+            "cause": "Create3 isn't bridging the odom->base_link TF.",
+            "fix": "Run `robobench odom-tf --robot turtlebot4 --config config.yaml` "
+            "to republish odom->base_link from /odom.",
+            "link": None,
+        },
     ],
     "dds_graph": [
         {

@@ -5,6 +5,15 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0a0] — 2026-05-29
+
+### Added
+
+- **`robobench odom-tf`** — republishes the odom->base_link TF when the Create3
+  firmware doesn't bridge it (ports upstream `odom_tf_publisher.py`). Closes the
+  "TF panel detects a broken odom edge but can't fix it" gap.
+- TF failure-catalog entry now points at `robobench odom-tf`.
+
 ## [0.6.0a0] — 2026-05-29
 
 ### Added

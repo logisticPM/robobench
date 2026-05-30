@@ -29,3 +29,8 @@ def test_lookup_fixes_ok_status_returns_empty():
 
 def test_lookup_fixes_unknown_check_returns_empty():
     assert lookup_fixes("nonexistent_check", status="FAIL") == []
+
+
+def test_tf_tree_suggests_odom_tf_helper():
+    fixes = lookup_fixes("tf_tree", "FAIL")
+    assert any("robobench odom-tf" in f["fix"] for f in fixes)
