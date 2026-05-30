@@ -5,6 +5,30 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0a0] — 2026-05-29
+
+### Added
+
+- **Convergence-loop recovery engine** (`robobench.recovery`): observe →
+  fix the most-upstream failing aspect with the cheapest action → re-observe →
+  repeat, with an escalation ladder, global deadline, no action repeated, and
+  the Create3 reboot gated behind `--allow-reboot`. Fully unit-tested via an
+  injected probe + actions (no hardware needed).
+- `RobotState` / `RobotProbe` / `RecoveryActions` interfaces; `TurtleBot4Probe`
+  (structured detection, 2-sample odom stability, defensive parsing) and
+  `TurtleBot4RecoveryActions` (idempotent atomic fixes).
+- CLI: `robobench preflight` (read-only diagnosis) and `robobench recover`
+  (`--dry-run`, `--allow-reboot`, `--deadline`).
+- Tutorial: `docs/tutorials/recovering-a-stuck-robot.md`.
+
+### Notes
+
+- Replaces the upstream's brittle linear `full_recovery` script. The atomic
+  actions are the upstream's proven commands; the *orchestration* is rebuilt
+  as a testable convergence loop. See the Phase D plan for the post-mortem of
+  why the linear chain was unreliable (fuzzy detection incl. an always-false
+  `\{ns}\odom` bug, hardcoded timing, over-eager Create3 reboot, no idempotency).
+
 ## [0.4.0a0] — 2026-05-29
 
 ### Added
