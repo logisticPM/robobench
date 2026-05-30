@@ -102,6 +102,29 @@ TF edge, a missing Nav2 node) so you can see every panel — including its
 red/fix states — with no hardware and no ROS2 installed. Great for trying
 robobench before you have a robot on the bench.
 
+## The Connectivity panel (DDS-blind fallback)
+
+The DDS-based panels go blank when the robot's Discovery Server is down or the
+RPi is unreachable — DDS can't tell you *why*. The **Connectivity** panel fills
+that gap: a second background thread runs an SSH probe (reusing your
+`config.yaml` `ssh_user`/`ssh_pass`) every ~20s and shows a layered ladder:
+
+```
+✓ RPi reachable
+✗ Discovery Server up        ← first broken layer, with a fix below
+  Clock synced
+  Create3 topics present
+  TB4 nodes present
+```
+
+The first broken layer is highlighted with its failure-catalog fix. So when the
+DDS panels are blank, this one still says e.g. "Discovery Server down — restart
+`discovery.service`."
+
+Flags: `--no-ssh-probe` disables it (pure-DDS dashboard); `--ssh-probe-interval`
+sets the cadence (default 20s). The odom liveness check is intentionally skipped
+here (the sensor panel's scan rate already covers it), keeping each probe fast.
+
 ## What's next
 
 Phase D adds a browser-driven bring-up wizard (interactive, one-click fixes)

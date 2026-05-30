@@ -5,6 +5,19 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.10.0a0] — 2026-05-30
+
+### Added
+
+- **Dashboard DDS-blind fallback.** A new **Connectivity** panel runs a lite SSH
+  probe (`TurtleBot4Probe.read_connectivity()`) on a slow background thread and
+  shows a layered ladder (RPi → Discovery Server → clock → Create3 topics → TB4
+  nodes) with the first broken layer + its fix. When the DDS panels go blank,
+  this one explains *why*. `robobench.panels.connectivity` (pure analyzer),
+  `connectivity_probe.run_connectivity_probe` (non-overlapping loop),
+  `GET /api/panels/connectivity`, per-aspect catalog fixes.
+- `robobench dashboard --no-ssh-probe` / `--ssh-probe-interval` (default 20s).
+
 ## [0.9.1a0] — 2026-05-29
 
 ### Added
