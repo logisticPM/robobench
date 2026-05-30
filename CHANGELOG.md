@@ -5,6 +5,24 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1a0] — 2026-05-29
+
+### Fixed
+
+- **Dashboard now connects from `config.yaml`.** `robobench dashboard` sets the
+  FastDDS Discovery Server env (`ROS_DISCOVERY_SERVER` from `robot.ip` +
+  `dds.discovery_port`, plus `RMW_IMPLEMENTATION`/`ROS_SUPER_CLIENT`) before
+  rclpy initializes — no manual `export` needed, matching the SSH commands.
+- **Clock panel works against a real robot.** The bridge computes a clock-offset
+  proxy from incoming LiDAR scan header stamps vs. local time (was always
+  `UNKNOWN` in non-demo mode). Sign convention matches `check_clock_offset`.
+
+### Added
+
+- `robobench.config.load_adapter_config` now returns `discovery_port`
+  (from `dds.discovery_port`, default 11811).
+- `robobench.panels.bridge.dds_env` and `clock_offset_from_stamp` pure helpers.
+
 ## [0.5.0a0] — 2026-05-29
 
 ### Added
