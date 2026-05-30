@@ -129,3 +129,47 @@ robot:
     cfg.write_text(yaml_text)
     kwargs = load_adapter_config(cfg)
     assert kwargs["discovery_port"] == DEFAULT_DISCOVERY_PORT
+
+
+def test_load_known_poses(tmp_path):
+    from robobench.config import load_known_poses
+
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "robot:\n  ip: i\n  ssh_user: u\n  ssh_pass: p\n  namespace: tb\n"
+        "known_poses:\n"
+        "  front_door: {x: 5.19, y: 2.56, theta: 0.0}\n",
+        encoding="utf-8",
+    )
+    poses = load_known_poses(cfg)
+    assert poses == {"front_door": {"x": 5.19, "y": 2.56, "theta": 0.0}}
+
+
+def test_load_known_poses_empty_when_absent(tmp_path):
+    from robobench.config import load_known_poses
+
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("robot:\n  ip: i\n  ssh_user: u\n  ssh_pass: p\n  namespace: tb\n", "utf-8")
+    assert load_known_poses(cfg) == {}
+
+
+def test_resolve_pose_named():
+    from robobench.config import resolve_pose
+
+    poses = {"front_door": {"x": 5.19, "y": 2.56, "theta": 0.0}}
+    assert resolve_pose("front_door", poses) == (5.19, 2.56, 0.0)
+
+
+def test_resolve_pose_raw_coords():
+    from robobench.config import resolve_pose
+
+    assert resolve_pose("1.0 -2.0 3.14", {}) == (1.0, -2.0, 3.14)
+
+
+def test_resolve_pose_unknown_raises():
+    import pytest
+
+    from robobench.config import resolve_pose
+
+    with pytest.raises(ValueError, match="unknown pose"):
+        resolve_pose("garage", {"front_door": {"x": 0, "y": 0, "theta": 0}})

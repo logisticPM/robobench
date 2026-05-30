@@ -60,3 +60,27 @@ def load_adapter_config(path: Path) -> dict:
         "user_input_topic": health.get("user_input_topic", "/user_input"),
         "discovery_port": int(dds.get("discovery_port", 11811)),
     }
+
+
+def load_known_poses(path: Path) -> dict[str, dict]:
+    """Return the optional ``known_poses`` map from config.yaml (or {})."""
+    if not path.exists():
+        raise FileNotFoundError(path)
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return data.get("known_poses") or {}
+
+
+def resolve_pose(value: str, known_poses: dict[str, dict]) -> tuple[float, float, float]:
+    """Resolve a pose name or a raw 'x y theta' string to (x, y, theta)."""
+    if value in known_poses:
+        p = known_poses[value]
+        return (float(p["x"]), float(p["y"]), float(p["theta"]))
+    parts = value.split()
+    if len(parts) == 3:
+        try:
+            x, y, theta = (float(p) for p in parts)
+            return (x, y, theta)
+        except ValueError:
+            pass
+    known = ", ".join(sorted(known_poses)) or "(none configured)"
+    raise ValueError(f"unknown pose '{value}'; known: {known}; or pass 'x y theta'")
