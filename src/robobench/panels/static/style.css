@@ -85,3 +85,11 @@ header h1 { font-size: 18px; margin: 0; font-weight: 600; }
 .metric { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
 @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+
+.ladder { list-style: none; padding: 0; margin: 0.5rem 0; }
+.ladder .layer { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
+.ladder .mark { width: 1.2em; text-align: center; font-weight: bold; }
+.ladder .ok { color: #2e7d32; }
+.ladder .down { color: #9e9e9e; }
+.ladder .broken { color: #c62828; font-weight: bold; }
+.ladder .muted { color: #9e9e9e; font-style: italic; }
