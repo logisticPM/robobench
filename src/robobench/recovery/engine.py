@@ -15,9 +15,11 @@ the whole engine is unit-testable without a robot.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from robobench.eventlog import NullEventLogger
 from robobench.recovery.actions import RecoveryActions
 from robobench.recovery.state import RobotState
 
@@ -64,6 +66,7 @@ class RecoveryEngine:
         settle_s: float,
         sleep: Callable[[float], None],
         now: Callable[[], float],
+        event_log: object | None = None,
     ) -> None:
         self._probe = probe
         self._actions = actions
@@ -72,6 +75,7 @@ class RecoveryEngine:
         self._settle_s = settle_s
         self._sleep = sleep
         self._now = now
+        self._log = event_log or NullEventLogger()
 
     def run(self) -> RecoveryResult:
         result = RecoveryResult(outcome="TIMED_OUT")
@@ -80,29 +84,35 @@ class RecoveryEngine:
         while True:
             state = self._probe()
             result.final_state = state
+            self._log.log("probe", dataclasses.asdict(state))
             if state.is_healthy():
                 result.outcome = "CONVERGED"
                 result.trace.append("healthy")
+                self._log.log("outcome", {"outcome": result.outcome})
                 return result
             if self._now() - start > self._deadline_s:
                 result.outcome = "TIMED_OUT"
                 result.trace.append("deadline exceeded")
+                self._log.log("outcome", {"outcome": result.outcome})
                 return result
             aspect = state.failing_aspect()
             if aspect == "rpi_reachable":
                 result.outcome = "NEEDS_HUMAN"
                 result.trace.append("rpi unreachable — power/network, cannot fix remotely")
+                self._log.log("outcome", {"outcome": result.outcome})
                 return result
 
             action_name = self._pick_action(aspect, tried)
             if action_name is None:
                 result.outcome = "STUCK"
                 result.trace.append(f"no untried action left for '{aspect}'")
+                self._log.log("outcome", {"outcome": result.outcome})
                 return result
 
             tried.add(action_name)
             result.actions_taken.append(action_name)
             result.trace.append(f"aspect '{aspect}' -> {action_name}")
+            self._log.log("action", {"aspect": aspect, "name": action_name})
             getattr(self._actions, action_name)()
             self._sleep(self._settle_s)
 

@@ -170,3 +170,42 @@ def test_no_action_repeated():
     assert result.outcome == "STUCK"
     # restart_create3_app tried once for odom; not called repeatedly
     assert result.actions_taken.count("restart_create3_app") == 1
+
+
+def test_engine_logs_events_to_injected_logger():
+    from robobench.recovery.engine import RecoveryEngine
+    from robobench.recovery.state import RobotState
+
+    healthy = RobotState(True, True, True, 5, True, True)
+    broken = RobotState(True, False, True, 5, True, True)
+    states = iter([broken, healthy])
+
+    class FakeActions:
+        def __getattr__(self, _name):
+            return lambda: None
+
+    events: list[tuple[str, dict]] = []
+
+    class FakeLog:
+        def log(self, event, data):
+            events.append((event, data))
+
+    engine = RecoveryEngine(
+        probe=lambda: next(states),
+        actions=FakeActions(),
+        allow_reboot=False,
+        deadline_s=100.0,
+        settle_s=0.0,
+        sleep=lambda _s: None,
+        now=lambda: 0.0,
+        event_log=FakeLog(),
+    )
+    result = engine.run()
+    assert result.outcome == "CONVERGED"
+    kinds = [e[0] for e in events]
+    assert "probe" in kinds
+    assert "action" in kinds
+    assert ("outcome", {"outcome": "CONVERGED"}) in events
+    action_event = next(d for k, d in events if k == "action")
+    assert action_event["name"] == "restart_discovery_server"
+    assert action_event["aspect"] == "discovery_server_ok"
