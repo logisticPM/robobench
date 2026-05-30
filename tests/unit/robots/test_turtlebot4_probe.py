@@ -118,3 +118,75 @@ def test_parse_int_is_defensive_against_trailing_warning():
     )  # last line is the count
     assert _parse_int("[WARN] not a number\n") == _PORT_NOT_LISTENING  # non-int -> 0
     assert _parse_int("") == _PORT_NOT_LISTENING
+
+
+class _RecordingSSH:
+    """Fake SSHClient context manager that records issued commands."""
+
+    def __init__(self, commands: list):
+        self._commands = commands
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def run(self, cmd, timeout=None):
+        import subprocess
+
+        self._commands.append(cmd)
+        text = " ".join(cmd)
+        if "11811" in text:
+            out = "1"
+        elif cmd[:2] == ["date", "+%s"]:
+            out = "0"  # ancient time -> clock NOT synced (drift huge)
+        elif "topic list" in text:
+            out = "12"
+        elif "node list" in text:
+            out = "/tb/node\n"
+        else:
+            out = ""
+        return subprocess.CompletedProcess(cmd, 0, out, "")
+
+
+def test_read_connectivity_skips_odom_echo():
+    from robobench.robots.turtlebot4_probe import TurtleBot4Probe
+
+    commands: list = []
+    probe = TurtleBot4Probe(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="tb",
+        ssh_factory=lambda *a, **k: _RecordingSSH(commands),
+        ping=lambda _ip: True,
+    )
+    state = probe.read_connectivity()
+
+    # odom echo must NOT have been issued
+    assert not any("odom" in " ".join(c) for c in commands)
+    # odom_publishing is the documented "not checked" sentinel
+    assert state.odom_publishing is True
+    # the five transport layers reflect the fake responses
+    assert state.rpi_reachable is True
+    assert state.discovery_server_ok is True
+    assert state.create3_topics == 12
+    assert state.tb4_nodes_present is True
+
+
+def test_read_connectivity_short_circuits_on_unreachable():
+    from robobench.robots.turtlebot4_probe import TurtleBot4Probe
+
+    commands: list = []
+    probe = TurtleBot4Probe(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="tb",
+        ssh_factory=lambda *a, **k: _RecordingSSH(commands),
+        ping=lambda _ip: False,
+    )
+    state = probe.read_connectivity()
+    assert state.rpi_reachable is False
+    assert commands == []  # no SSH attempted when ping fails

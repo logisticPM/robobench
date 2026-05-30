@@ -51,6 +51,19 @@ class TurtleBot4Probe(RobotProbe):
         return datetime.now(tz=UTC).timestamp()
 
     def read(self) -> RobotState:
+        """Full bring-up read (includes the odom 2-sample stability check)."""
+        return self._read(check_odom=True)
+
+    def read_connectivity(self) -> RobotState:
+        """Lite read for the dashboard: the five transport layers, no odom echo.
+
+        ``odom_publishing`` is set ``True`` as a documented sentinel meaning "not
+        checked here" — the connectivity panel never reads it (the sensor panel
+        owns liveness). Each cycle finishes in a few seconds instead of ~30s.
+        """
+        return self._read(check_odom=False)
+
+    def _read(self, *, check_odom: bool) -> RobotState:
         if not self._ping(self.ip):
             return RobotState(
                 rpi_reachable=False,
@@ -83,7 +96,7 @@ class TurtleBot4Probe(RobotProbe):
             )
             tb4_nodes_present = nodes.returncode == 0 and bool(nodes.stdout.strip())
 
-            odom_publishing = self._odom_stable(ssh)
+            odom_publishing = self._odom_stable(ssh) if check_odom else True
 
         return RobotState(
             rpi_reachable=True,
