@@ -11,15 +11,20 @@ robobench dashboard --robot turtlebot4 --config ./config.yaml --port 8080
 ```
 
 This:
-1. Starts a persistent ROS2 bridge node (in a daemon thread) that subscribes
-   to `/<ns>/scan`, `/tf`, and tracks the visible node list.
-2. Serves a diagnostic API on `http://127.0.0.1:8080`.
+1. Reads `config.yaml` and points rclpy at the robot's FastDDS Discovery
+   Server (`robot.ip` + `dds.discovery_port`) — no manual `export` needed.
+2. Starts a persistent ROS2 bridge node (daemon thread) subscribing to
+   `/<ns>/scan`, `/tf`, and the live node list.
+3. Serves the diagnostic API + web UI on `http://127.0.0.1:8080`.
 
-If ROS2 isn't sourced, the server still starts — panels just report
-`UNKNOWN` / empty until a bridge can connect. (You'll see
-`[dashboard] bridge not started: ... requires ROS2 ...` on stderr.)
+> Requires the optional extra **and** ROS2 sourced in the shell:
+> `pip install 'robobench[dashboard]'`, then `source /opt/ros/<distro>/setup.bash`.
+> If ROS2 isn't available the server still starts; panels report `UNKNOWN`/empty
+> and stderr shows `[dashboard] bridge not started: ... requires ROS2 ...`.
 
-> The dashboard requires the optional extra: `pip install 'robobench[dashboard]'`.
+> **Clock panel:** the offset shown is derived from incoming LiDAR scan
+> timestamps vs. local time (a clock-drift proxy that also includes negligible
+> transport latency). For a pure SSH-measured offset, use `robobench check`.
 
 ## Read the panels
 
