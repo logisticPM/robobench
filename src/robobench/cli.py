@@ -42,6 +42,13 @@ _CLOCK_OK_THRESHOLD = 2.0
 _CLOCK_WARN_THRESHOLD = 10.0
 
 
+def _positive_float(value: str) -> float:
+    parsed = float(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be > 0")
+    return parsed
+
+
 def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     parser = argparse.ArgumentParser(prog="robobench")
     parser.add_argument("--version", action="version", version=f"robobench {__version__}")
@@ -106,7 +113,7 @@ def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     )
     dashboard.add_argument(
         "--ssh-probe-interval",
-        type=float,
+        type=_positive_float,
         default=20.0,
         help="Seconds between SSH connectivity probes (default 20).",
     )
@@ -305,7 +312,7 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
                 clock_synced=True,
                 create3_topics=0,
                 tb4_nodes_present=False,
-                odom_publishing=True,
+                odom_publishing=True,  # sentinel: odom not checked in the connectivity path
             )
         )
         threading.Thread(target=_demo_refresh_loop, args=(state,), daemon=True).start()

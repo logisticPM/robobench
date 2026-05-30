@@ -11,13 +11,21 @@ from __future__ import annotations
 import sys
 import time
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Protocol
 
 from robobench.panels.state import DiagnosticState
+
+if TYPE_CHECKING:
+    from robobench.recovery.state import RobotState
+
+
+class ConnectivityProbe(Protocol):
+    def read_connectivity(self) -> RobotState: ...
 
 
 def run_connectivity_probe(
     state: DiagnosticState,
-    probe,
+    probe: ConnectivityProbe,
     *,
     interval: float,
     sleep: Callable[[float], None] = time.sleep,

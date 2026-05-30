@@ -56,3 +56,4 @@ def test_loop_survives_probe_exception():
     )
     # first cycle raised but was swallowed; second cycle wrote a result
     assert state.connectivity() == _OK
+    assert calls["sleep"] == _CYCLES
