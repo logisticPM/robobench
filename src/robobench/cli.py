@@ -41,7 +41,7 @@ _CLOCK_OK_THRESHOLD = 2.0
 _CLOCK_WARN_THRESHOLD = 10.0
 
 
-def _build_parser() -> argparse.ArgumentParser:
+def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     parser = argparse.ArgumentParser(prog="robobench")
     parser.add_argument("--version", action="version", version=f"robobench {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -127,6 +127,14 @@ def _build_parser() -> argparse.ArgumentParser:
     bridge.add_argument("--robot", required=True, choices=["turtlebot4"])
     bridge.add_argument("--config", required=True)
     bridge.set_defaults(func=_cmd_bridge)
+
+    odom_tf = subparsers.add_parser(
+        "odom-tf",
+        help="Republish odom->base_link TF when the Create3 doesn't bridge it.",
+    )
+    odom_tf.add_argument("--robot", required=True, choices=["turtlebot4"])
+    odom_tf.add_argument("--config", required=True)
+    odom_tf.set_defaults(func=_cmd_odom_tf)
 
     return parser
 
@@ -368,6 +376,22 @@ def _cmd_bridge(args: argparse.Namespace) -> int:
         run_dds_bridge(namespace=namespace, discovery_server=discovery_server)
     except RuntimeError as exc:
         print(f"[bridge] not started: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+def _cmd_odom_tf(args: argparse.Namespace) -> int:
+    if args.robot != "turtlebot4":
+        print(f"unsupported robot: {args.robot}", file=sys.stderr)
+        return 2
+    namespace = load_adapter_config(Path(args.config))["namespace"]
+    from robobench.diagnostics.odom_tf import run_odom_tf_publisher  # noqa: PLC0415
+
+    print(f"[odom-tf] publishing odom->base_link TF for {namespace}. Ctrl+C to stop.")
+    try:
+        run_odom_tf_publisher(namespace=namespace)
+    except RuntimeError as exc:
+        print(f"[odom-tf] not started: {exc}", file=sys.stderr)
         return 2
     return 0
 

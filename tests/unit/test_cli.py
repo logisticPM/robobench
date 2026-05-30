@@ -331,6 +331,23 @@ def test_recover_nonzero_when_not_converged(mocker, tmp_path):
     assert rc == 1
 
 
+def test_odom_tf_invokes_runner(monkeypatch, tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "robot:\n  ip: 1.2.3.4\n  ssh_user: u\n  ssh_pass: p\n  namespace: tb\n",
+        encoding="utf-8",
+    )
+    seen = {}
+    monkeypatch.setattr(
+        "robobench.diagnostics.odom_tf.run_odom_tf_publisher",
+        lambda namespace: seen.update(namespace=namespace),
+    )
+
+    rc = main(["odom-tf", "--robot", "turtlebot4", "--config", str(cfg)])
+    assert rc == 0
+    assert seen == {"namespace": "tb"}
+
+
 def test_bridge_invokes_runner(monkeypatch, tmp_path):
     cfg = tmp_path / "config.yaml"
     cfg.write_text(

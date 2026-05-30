@@ -1,4 +1,4 @@
-from robobench.diagnostics.odom_tf import odom_to_tf
+from robobench.diagnostics.odom_tf import odom_to_tf, odom_topic
 
 
 def test_odom_to_tf_copies_pose_and_frames():
@@ -18,8 +18,6 @@ def test_odom_to_tf_copies_pose_and_frames():
 
 
 def test_odom_topic_for_namespace():
-    from robobench.diagnostics.odom_tf import odom_topic
-
     assert odom_topic("turtlebot468") == "/turtlebot468/odom"
     assert odom_topic("/turtlebot468/") == "/turtlebot468/odom"
     assert odom_topic("") == "/odom"
