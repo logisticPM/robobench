@@ -532,3 +532,42 @@ def test_setup_clock_sync_includes_workstation_chrony_check_in_report(mocker):
 
     assert "workstation_chrony" in report
     assert report["workstation_chrony"]["status"] == "WARN"
+
+
+def test_activate_lifecycle_falls_back_to_cli(monkeypatch):
+    from robobench.robots import turtlebot4
+
+    def fake_run(cmd, timeout=None, **kw):
+        import subprocess
+
+        rc = 1 if "robobench-lifecycle-activator" in cmd else 0
+        return subprocess.CompletedProcess(cmd, rc, "", "boom" if rc else "")
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        turtlebot4,
+        "run_local",
+        lambda cmd, timeout=None, **kw: calls.append(list(cmd)) or fake_run(cmd, timeout),
+    )
+    adapter = turtlebot4.TurtleBot4Adapter(ip="i", ssh_user="u", ssh_pass="p", namespace="tb")
+    adapter.activate_lifecycle(map_yaml="/m.yaml")  # must NOT raise — fallback succeeds
+
+    flat = [" ".join(c) for c in calls]
+    assert any("lifecycle" in c and "configure" in c for c in flat)
+    assert any("lifecycle" in c and "activate" in c for c in flat)
+
+
+def test_activate_lifecycle_raises_when_fallback_also_fails(monkeypatch):
+    import pytest
+
+    from robobench.robots import turtlebot4
+
+    def fake_run(cmd, timeout=None, **kw):
+        import subprocess
+
+        return subprocess.CompletedProcess(cmd, 1, "", "fail")
+
+    monkeypatch.setattr(turtlebot4, "run_local", fake_run)
+    adapter = turtlebot4.TurtleBot4Adapter(ip="i", ssh_user="u", ssh_pass="p", namespace="tb")
+    with pytest.raises(RuntimeError, match="lifecycle"):
+        adapter.activate_lifecycle(map_yaml="/m.yaml")

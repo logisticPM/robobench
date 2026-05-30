@@ -175,7 +175,12 @@ class TurtleBot4Adapter(RobotAdapter):
         target.write_text(f"{proc.pid}\n")
 
     def activate_lifecycle(self, map_yaml: str | None = None) -> None:
-        """Run the lifecycle activator to configure+activate all Nav2 nodes."""
+        """Configure+activate all Nav2 nodes via the persistent activator.
+
+        On activator failure, fall back to per-node ``ros2 lifecycle set``
+        (configure then activate), mirroring upstream deploy.sh. Raises only if
+        the fallback also fails to activate any node.
+        """
         if map_yaml is None:
             raise ValueError("activate_lifecycle requires map_yaml path")
         result = run_local(
@@ -188,9 +193,21 @@ class TurtleBot4Adapter(RobotAdapter):
             ],
             timeout=180,
         )
-        if result.returncode != 0:
+        if result.returncode == 0:
+            return
+
+        # Fallback: manual CLI activation, node by node.
+        any_ok = False
+        for node in self._LIFECYCLE_NODES:
+            target = f"/{self.namespace}/{node}"
+            configure = run_local(["ros2", "lifecycle", "set", target, "configure"], timeout=30)
+            activate = run_local(["ros2", "lifecycle", "set", target, "activate"], timeout=30)
+            if configure.returncode == 0 and activate.returncode == 0:
+                any_ok = True
+        if not any_ok:
             raise RuntimeError(
-                f"lifecycle activation failed (rc={result.returncode}): {result.stderr.strip()}"
+                f"lifecycle activation failed (activator rc={result.returncode}); "
+                f"CLI fallback could not activate any node: {result.stderr.strip()}"
             )
 
     def set_initial_pose(self, x: float, y: float, theta: float) -> None:
@@ -294,6 +311,16 @@ class TurtleBot4Adapter(RobotAdapter):
             overall = "HEALTHY"
 
         return {"checks": checks, "overall": overall}
+
+    _LIFECYCLE_NODES = (
+        "map_server",
+        "amcl",
+        "controller_server",
+        "planner_server",
+        "behavior_server",
+        "bt_navigator",
+        "velocity_smoother",
+    )
 
     _PKILL_PATTERNS = (
         "navigation_mode.launch",
