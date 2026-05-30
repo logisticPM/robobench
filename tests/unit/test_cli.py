@@ -178,6 +178,25 @@ def test_dashboard_demo_flag_seeds_state_and_skips_bridge(mocker, tmp_path):
     assert create_app_mock.call_args.kwargs.get("expected_nodes") is cli.DEMO_EXPECTED_NODES
 
 
+def test_dashboard_passes_discovery_server_from_config(mocker, tmp_path):
+    """Non-demo dashboard derives discovery_server from config ip+port and
+    hands it to the bridge thread."""
+    cfg = _write_config(tmp_path)  # ip 192.168.50.31, default port 11811
+
+    fake_state = MagicMock()
+    mocker.patch("robobench.cli.DiagnosticState", return_value=fake_state)
+    mocker.patch("robobench.cli.create_app", return_value="APP")
+    thread_mock = mocker.patch("robobench.cli.threading.Thread")
+    mocker.patch("robobench.cli.uvicorn.run")
+
+    rc = main(["dashboard", "--robot", "turtlebot4", "--config", str(cfg)])
+
+    assert rc == 0
+    args = thread_mock.call_args.kwargs.get("args")
+    assert args is not None
+    assert "192.168.50.31:11811" in args
+
+
 def test_preflight_prints_state_and_planned_actions(mocker, tmp_path, capsys):
     """`robobench preflight` reads state (no fixes) and prints JSON + would-do actions."""
     cfg = _write_config(tmp_path)

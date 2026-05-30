@@ -212,13 +212,13 @@ _DEFAULT_EXPECTED_NODES = [
 ]
 
 
-def _safe_run_bridge(state, namespace: str) -> None:
+def _safe_run_bridge(state, namespace: str, discovery_server: str | None = None) -> None:
     """Run the bridge, swallowing the no-ROS2 RuntimeError so the web server
     stays up (panels degrade to UNKNOWN/empty instead of crashing)."""
     from robobench.panels.bridge import run_bridge  # noqa: PLC0415
 
     try:
-        run_bridge(state, namespace=namespace)
+        run_bridge(state, namespace=namespace, discovery_server=discovery_server)
     except RuntimeError as exc:
         print(f"[dashboard] bridge not started: {exc}", file=sys.stderr)
 
@@ -259,7 +259,13 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
         expected_nodes = DEMO_EXPECTED_NODES
         print("[dashboard] demo mode — serving synthetic data (no robot needed)")
     else:
-        threading.Thread(target=_safe_run_bridge, args=(state, namespace), daemon=True).start()
+        discovery_server = f"{kwargs['ip']}:{kwargs['discovery_port']}"
+        threading.Thread(
+            target=_safe_run_bridge,
+            args=(state, namespace, discovery_server),
+            daemon=True,
+        ).start()
+        print(f"[dashboard] connecting via Discovery Server {discovery_server}")
         expected_nodes = _DEFAULT_EXPECTED_NODES
 
     app = create_app(state, namespace=namespace, expected_nodes=expected_nodes)
