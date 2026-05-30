@@ -12,7 +12,7 @@ def test_event_logger_writes_jsonl(tmp_path):
     files = list(tmp_path.glob("events_*.jsonl"))
     assert len(files) == 1
     lines = files[0].read_text(encoding="utf-8").splitlines()
-    assert len(lines) == 2
+    assert len(lines) == 2  # noqa: PLR2004
     first = json.loads(lines[0])
     assert first["event"] == "probe"
     assert first["data"] == {"healthy": False, "failing": "clock_synced"}

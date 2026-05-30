@@ -20,6 +20,7 @@ from pathlib import Path
 
 from robobench import __version__
 from robobench.config import load_adapter_config
+from robobench.eventlog import EventLogger
 from robobench.recovery.engine import _LADDER
 from robobench.robots.turtlebot4 import TurtleBot4Adapter
 from robobench.robots.turtlebot4_probe import TurtleBot4Probe
@@ -303,6 +304,9 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
         namespace=kwargs["namespace"],
     )
     state = probe.read()
+    event_log = EventLogger()
+    event_log.log("preflight", dataclasses.asdict(state))
+    event_log.close()
     aspect = state.failing_aspect()
     would_do = [a for asp, a, _nuke in _LADDER if asp == aspect]
     print(
@@ -316,6 +320,7 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
             indent=2,
         )
     )
+    print(f"event log: {event_log.path}", file=sys.stderr)
     return 0 if state.is_healthy() else 1
 
 
@@ -344,6 +349,7 @@ def _cmd_recover(args: argparse.Namespace) -> int:
             print("[dry-run] healthy or nothing to try")
         return 0
 
+    event_log = EventLogger()
     engine = build_turtlebot4_recovery(
         ip=kwargs["ip"],
         ssh_user=kwargs["ssh_user"],
@@ -351,11 +357,16 @@ def _cmd_recover(args: argparse.Namespace) -> int:
         namespace=kwargs["namespace"],
         allow_reboot=args.allow_reboot,
         deadline_s=args.deadline,
+        event_log=event_log,
     )
-    result = engine.run()
+    try:
+        result = engine.run()
+    finally:
+        event_log.close()
     print(f"recovery outcome: {result.outcome}")
     for a in result.actions_taken:
         print(f"  applied: {a}")
+    print(f"event log: {event_log.path}")
     if result.outcome == "NEEDS_HUMAN":
         print("  robot unreachable — check power and network.", file=sys.stderr)
     return 0 if result.outcome == "CONVERGED" else 1

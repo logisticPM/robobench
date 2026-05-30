@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _DEFAULT_LOG_DIR = Path.home() / ".robobench" / "logs"
@@ -36,7 +36,7 @@ class EventLogger:
         directory = Path(log_dir) if log_dir else _DEFAULT_LOG_DIR
         directory.mkdir(parents=True, exist_ok=True)
         self.session_id = uuid.uuid4().hex[:8]
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         self._path = directory / f"events_{ts}_{self.session_id}.jsonl"
         self.path = str(self._path)
         self._lock = threading.Lock()
@@ -45,7 +45,7 @@ class EventLogger:
 
     def log(self, event: str, data: dict) -> None:
         record = {
-            "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "ts": datetime.now(UTC).isoformat(timespec="milliseconds"),
             "session_id": self.session_id,
             "event": event,
             "data": data,

@@ -371,3 +371,32 @@ def test_bridge_invokes_runner(monkeypatch, tmp_path):
     rc = main(["bridge", "--robot", "turtlebot4", "--config", str(cfg)])
     assert rc == 0
     assert calls == {"namespace": "tb", "discovery_server": "1.2.3.4:11811"}
+
+
+def test_recover_writes_event_log(monkeypatch, tmp_path, capsys):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "robot:\n  ip: 1.2.3.4\n  ssh_user: u\n  ssh_pass: p\n  namespace: tb\n",
+        encoding="utf-8",
+    )
+
+    class FakeResult:
+        outcome = "CONVERGED"
+        actions_taken: list[str] = []
+
+    class FakeEngine:
+        def run(self):
+            return FakeResult()
+
+    captured = {}
+
+    def fake_build(**kwargs):
+        captured["event_log"] = kwargs.get("event_log")
+        return FakeEngine()
+
+    monkeypatch.setattr("robobench.cli.build_turtlebot4_recovery", fake_build)
+
+    rc = main(["recover", "--robot", "turtlebot4", "--config", str(cfg)])
+    assert rc == 0
+    assert captured["event_log"] is not None  # a real EventLogger was passed
+    assert "event log:" in capsys.readouterr().out

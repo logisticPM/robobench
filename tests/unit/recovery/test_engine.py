@@ -173,9 +173,6 @@ def test_no_action_repeated():
 
 
 def test_engine_logs_events_to_injected_logger():
-    from robobench.recovery.engine import RecoveryEngine
-    from robobench.recovery.state import RobotState
-
     healthy = RobotState(True, True, True, 5, True, True)
     broken = RobotState(True, False, True, 5, True, True)
     states = iter([broken, healthy])

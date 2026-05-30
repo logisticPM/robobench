@@ -5,6 +5,15 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0a0] — 2026-05-29
+
+### Added
+
+- **Flight recorder** (`robobench.eventlog`): JSONL session logs of every
+  diagnostics/recovery run. `recover` and `preflight` now write
+  `~/.robobench/logs/events_*.jsonl` and print the path; the recovery engine
+  emits `probe`/`action`/`outcome` events. Ports upstream `event_logger.py`.
+
 ## [0.7.0a0] — 2026-05-29
 
 ### Added
