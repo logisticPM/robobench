@@ -118,3 +118,26 @@ def test_static_assets_are_mounted():
     client = _client(DiagnosticState())
     resp = client.get("/static/index.html")
     assert resp.status_code == HTTP_OK
+
+
+def test_connectivity_panel_unknown_then_fail():
+    from fastapi.testclient import TestClient
+
+    from robobench.panels.server import create_app
+    from robobench.panels.state import DiagnosticState
+    from robobench.recovery.state import RobotState
+
+    state = DiagnosticState()
+    client = TestClient(create_app(state, namespace="tb", expected_nodes=[]))
+
+    # No probe yet -> UNKNOWN
+    body = client.get("/api/panels/connectivity").json()
+    assert body["status"] == "UNKNOWN"
+
+    # Discovery Server down -> FAIL at that layer, with fixes
+    state.set_connectivity(RobotState(True, False, True, 0, False, True))
+    body = client.get("/api/panels/connectivity").json()
+    assert body["status"] == "FAIL"
+    assert body["first_broken"] == "discovery_server_ok"
+    assert body["fixes"]
+    assert [layer["name"] for layer in body["layers"]][0] == "rpi_reachable"

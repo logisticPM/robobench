@@ -24,6 +24,7 @@ from robobench.panels.analyzers import (
     compute_topic_rate,
 )
 from robobench.panels.catalog import lookup_fixes
+from robobench.panels.connectivity import diagnose as diagnose_connectivity
 from robobench.panels.state import DiagnosticState
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -90,6 +91,10 @@ def create_app(
         )
         status = "FAIL" if graph["missing"] else "OK"
         return {**graph, "status": status, "fixes": lookup_fixes("dds_graph", status)}
+
+    @app.get("/api/panels/connectivity")
+    def connectivity_panel() -> dict:
+        return diagnose_connectivity(app.state.diag.connectivity())
 
     if _STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
