@@ -176,3 +176,137 @@ def test_dashboard_demo_flag_seeds_state_and_skips_bridge(mocker, tmp_path):
     assert thread_mock.call_args.kwargs.get("daemon") is True
     # demo mode checks against the demo's own expected-node set (self-consistent)
     assert create_app_mock.call_args.kwargs.get("expected_nodes") is cli.DEMO_EXPECTED_NODES
+
+
+def test_preflight_prints_state_and_planned_actions(mocker, tmp_path, capsys):
+    """`robobench preflight` reads state (no fixes) and prints JSON + would-do actions."""
+    cfg = _write_config(tmp_path)
+
+    from robobench.recovery.state import RobotState  # noqa: PLC0415
+
+    bad_state = RobotState(
+        rpi_reachable=True,
+        discovery_server_ok=True,
+        clock_synced=True,
+        create3_topics=12,
+        tb4_nodes_present=True,
+        odom_publishing=False,
+    )
+    fake_probe = MagicMock()
+    fake_probe.read.return_value = bad_state
+    mocker.patch("robobench.cli.TurtleBot4Probe", return_value=fake_probe)
+
+    rc = main(["preflight", "--robot", "turtlebot4", "--config", str(cfg)])
+    out = capsys.readouterr().out
+
+    assert rc == 1  # not healthy -> nonzero
+    assert "odom_publishing" in out
+    assert "restart_create3_app" in out  # the action that WOULD run
+
+
+def test_preflight_healthy_exits_zero(mocker, tmp_path):
+    cfg = _write_config(tmp_path)
+    from robobench.recovery.state import RobotState  # noqa: PLC0415
+
+    good = RobotState(
+        rpi_reachable=True,
+        discovery_server_ok=True,
+        clock_synced=True,
+        create3_topics=12,
+        tb4_nodes_present=True,
+        odom_publishing=True,
+    )
+    fake_probe = MagicMock()
+    fake_probe.read.return_value = good
+    mocker.patch("robobench.cli.TurtleBot4Probe", return_value=fake_probe)
+    rc = main(["preflight", "--robot", "turtlebot4", "--config", str(cfg)])
+    assert rc == 0
+
+
+def test_recover_runs_engine_and_reports_outcome(mocker, tmp_path, capsys):
+    cfg = _write_config(tmp_path)
+    from robobench.recovery.engine import RecoveryResult  # noqa: PLC0415
+
+    fake_engine = MagicMock()
+    fake_engine.run.return_value = RecoveryResult(
+        outcome="CONVERGED", actions_taken=["restart_local_daemon"], trace=["healthy"]
+    )
+    build_mock = mocker.patch("robobench.cli.build_turtlebot4_recovery", return_value=fake_engine)
+
+    rc = main(
+        [
+            "recover",
+            "--robot",
+            "turtlebot4",
+            "--config",
+            str(cfg),
+            "--deadline",
+            "60",
+        ]
+    )
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "CONVERGED" in out
+    fake_engine.run.assert_called_once()
+    assert build_mock.call_args.kwargs.get("allow_reboot") is False  # OFF by default
+
+
+def test_recover_allow_reboot_flag_is_passed(mocker, tmp_path):
+    cfg = _write_config(tmp_path)
+    from robobench.recovery.engine import RecoveryResult  # noqa: PLC0415
+
+    fake_engine = MagicMock()
+    fake_engine.run.return_value = RecoveryResult(outcome="CONVERGED")
+    build_mock = mocker.patch("robobench.cli.build_turtlebot4_recovery", return_value=fake_engine)
+
+    main(
+        [
+            "recover",
+            "--robot",
+            "turtlebot4",
+            "--config",
+            str(cfg),
+            "--allow-reboot",
+            "--deadline",
+            "300",
+        ]
+    )
+    assert build_mock.call_args.kwargs.get("allow_reboot") is True
+
+
+def test_recover_dry_run_does_not_run_engine(mocker, tmp_path, capsys):
+    cfg = _write_config(tmp_path)
+    from robobench.recovery.state import RobotState  # noqa: PLC0415
+
+    bad = RobotState(
+        rpi_reachable=True,
+        discovery_server_ok=False,
+        clock_synced=True,
+        create3_topics=0,
+        tb4_nodes_present=False,
+        odom_publishing=False,
+    )
+    fake_probe = MagicMock()
+    fake_probe.read.return_value = bad
+    mocker.patch("robobench.cli.TurtleBot4Probe", return_value=fake_probe)
+    build_mock = mocker.patch("robobench.cli.build_turtlebot4_recovery")
+
+    rc = main(["recover", "--robot", "turtlebot4", "--config", str(cfg), "--dry-run"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    build_mock.assert_not_called()  # dry-run never builds/runs the engine
+    assert "restart_discovery_server" in out  # prints the plan instead
+
+
+def test_recover_nonzero_when_not_converged(mocker, tmp_path):
+    cfg = _write_config(tmp_path)
+    from robobench.recovery.engine import RecoveryResult  # noqa: PLC0415
+
+    fake_engine = MagicMock()
+    fake_engine.run.return_value = RecoveryResult(outcome="STUCK")
+    mocker.patch("robobench.cli.build_turtlebot4_recovery", return_value=fake_engine)
+
+    rc = main(["recover", "--robot", "turtlebot4", "--config", str(cfg), "--deadline", "30"])
+    assert rc == 1

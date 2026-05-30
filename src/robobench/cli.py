@@ -11,6 +11,7 @@ Usage examples (Phase A — v0.1):
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 import threading
@@ -19,7 +20,10 @@ from pathlib import Path
 
 from robobench import __version__
 from robobench.config import load_adapter_config
+from robobench.recovery.engine import _LADDER
 from robobench.robots.turtlebot4 import TurtleBot4Adapter
+from robobench.robots.turtlebot4_probe import TurtleBot4Probe
+from robobench.robots.turtlebot4_recovery import build_turtlebot4_recovery
 
 try:
     import uvicorn
@@ -90,6 +94,31 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Seed synthetic data instead of connecting to a robot (no ROS2 needed).",
     )
     dashboard.set_defaults(func=_cmd_dashboard)
+
+    preflight = subparsers.add_parser(
+        "preflight", help="Read-only bring-up diagnosis (no fixes applied)."
+    )
+    preflight.add_argument("--robot", required=True, choices=["turtlebot4"])
+    preflight.add_argument("--config", required=True)
+    preflight.set_defaults(func=_cmd_preflight)
+
+    recover = subparsers.add_parser(
+        "recover", help="Drive a stuck robot back to a healthy bring-up state."
+    )
+    recover.add_argument("--robot", required=True, choices=["turtlebot4"])
+    recover.add_argument("--config", required=True)
+    recover.add_argument(
+        "--deadline", type=float, default=180.0, help="Max seconds to keep trying (default 180)."
+    )
+    recover.add_argument(
+        "--allow-reboot",
+        action="store_true",
+        help="Permit the NUCLEAR Create3 full reboot (off by default).",
+    )
+    recover.add_argument(
+        "--dry-run", action="store_true", help="Print the plan from current state; apply nothing."
+    )
+    recover.set_defaults(func=_cmd_recover)
 
     return parser
 
@@ -237,6 +266,77 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
     print(f"robobench dashboard on http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port)
     return 0
+
+
+def _cmd_preflight(args: argparse.Namespace) -> int:
+
+    if args.robot != "turtlebot4":
+        print(f"unsupported robot: {args.robot}", file=sys.stderr)
+        return 2
+    kwargs = load_adapter_config(Path(args.config))
+    probe = TurtleBot4Probe(
+        ip=kwargs["ip"],
+        ssh_user=kwargs["ssh_user"],
+        ssh_pass=kwargs["ssh_pass"],
+        namespace=kwargs["namespace"],
+    )
+    state = probe.read()
+    aspect = state.failing_aspect()
+    would_do = [a for asp, a, _nuke in _LADDER if asp == aspect]
+    print(
+        json.dumps(
+            {
+                "healthy": state.is_healthy(),
+                "failing_aspect": aspect,
+                "would_try": would_do,
+                "state": dataclasses.asdict(state),
+            },
+            indent=2,
+        )
+    )
+    return 0 if state.is_healthy() else 1
+
+
+def _cmd_recover(args: argparse.Namespace) -> int:
+    if args.robot != "turtlebot4":
+        print(f"unsupported robot: {args.robot}", file=sys.stderr)
+        return 2
+    kwargs = load_adapter_config(Path(args.config))
+
+    if args.dry_run:
+        probe = TurtleBot4Probe(
+            ip=kwargs["ip"],
+            ssh_user=kwargs["ssh_user"],
+            ssh_pass=kwargs["ssh_pass"],
+            namespace=kwargs["namespace"],
+        )
+        state = probe.read()
+        aspect = state.failing_aspect()
+        would_do = [
+            a for asp, a, nuke in _LADDER if asp == aspect and (args.allow_reboot or not nuke)
+        ]
+        print(f"[dry-run] failing aspect: {aspect}")
+        for a in would_do:
+            print(f"[dry-run] would try: {a}")
+        if not would_do:
+            print("[dry-run] healthy or nothing to try")
+        return 0
+
+    engine = build_turtlebot4_recovery(
+        ip=kwargs["ip"],
+        ssh_user=kwargs["ssh_user"],
+        ssh_pass=kwargs["ssh_pass"],
+        namespace=kwargs["namespace"],
+        allow_reboot=args.allow_reboot,
+        deadline_s=args.deadline,
+    )
+    result = engine.run()
+    print(f"recovery outcome: {result.outcome}")
+    for a in result.actions_taken:
+        print(f"  applied: {a}")
+    if result.outcome == "NEEDS_HUMAN":
+        print("  robot unreachable — check power and network.", file=sys.stderr)
+    return 0 if result.outcome == "CONVERGED" else 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:
