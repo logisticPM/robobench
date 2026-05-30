@@ -8,6 +8,9 @@ import pytest
 
 from robobench.config import load_adapter_config
 
+DEFAULT_DISCOVERY_PORT = 11811
+CUSTOM_DISCOVERY_PORT = 11888
+
 
 def test_load_adapter_config_returns_expected_kwargs(tmp_path: Path):
     """A minimal config.yaml yields TurtleBot4Adapter-compatible kwargs."""
@@ -94,3 +97,35 @@ workspace:
     assert kwargs["launch_package"] == "campus_nav_llm"
     assert kwargs["launch_file"] == "navigation_mode.launch.py"
     assert kwargs["user_input_topic"] == "/user_input"
+
+
+def test_load_adapter_config_reads_dds_discovery_port(tmp_path: Path):
+    """An explicit dds.discovery_port flows into the kwargs."""
+    yaml_text = f"""
+robot:
+  ip: "192.168.50.31"
+  ssh_user: "ubuntu"
+  ssh_pass: "pw"
+  namespace: "tb4"
+dds:
+  discovery_port: {CUSTOM_DISCOVERY_PORT}
+"""
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(yaml_text)
+    kwargs = load_adapter_config(cfg)
+    assert kwargs["discovery_port"] == CUSTOM_DISCOVERY_PORT
+
+
+def test_load_adapter_config_discovery_port_defaults_to_11811(tmp_path: Path):
+    """When dds.discovery_port is absent, default to the upstream default."""
+    yaml_text = """
+robot:
+  ip: "192.168.50.31"
+  ssh_user: "ubuntu"
+  ssh_pass: "pw"
+  namespace: "tb4"
+"""
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(yaml_text)
+    kwargs = load_adapter_config(cfg)
+    assert kwargs["discovery_port"] == DEFAULT_DISCOVERY_PORT

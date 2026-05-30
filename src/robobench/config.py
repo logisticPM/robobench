@@ -27,6 +27,8 @@ def load_adapter_config(path: Path) -> dict:
           file: "navigation_mode.launch.py"
         health:                             # optional, defaults to campus_guide
           user_input_topic: "/user_input"
+        dds:                                # optional
+          discovery_port: 11811
     """
     if not path.exists():
         raise FileNotFoundError(path)
@@ -36,6 +38,7 @@ def load_adapter_config(path: Path) -> dict:
     build = data.get("build") or {}
     launch = data.get("launch") or {}
     health = data.get("health") or {}
+    dds = data.get("dds") or {}
 
     required = ("ip", "ssh_user", "ssh_pass", "namespace")
     missing = [k for k in required if not robot.get(k)]
@@ -55,4 +58,5 @@ def load_adapter_config(path: Path) -> dict:
         "launch_package": launch.get("package", "campus_nav_llm"),
         "launch_file": launch.get("file", "navigation_mode.launch.py"),
         "user_input_topic": health.get("user_input_topic", "/user_input"),
+        "discovery_port": int(dds.get("discovery_port", 11811)),
     }
