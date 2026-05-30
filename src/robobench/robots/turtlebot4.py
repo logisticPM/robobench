@@ -201,8 +201,10 @@ class TurtleBot4Adapter(RobotAdapter):
         for node in self._LIFECYCLE_NODES:
             target = f"/{self.namespace}/{node}"
             configure = run_local(["ros2", "lifecycle", "set", target, "configure"], timeout=30)
+            if configure.returncode != 0:
+                continue
             activate = run_local(["ros2", "lifecycle", "set", target, "activate"], timeout=30)
-            if configure.returncode == 0 and activate.returncode == 0:
+            if activate.returncode == 0:
                 any_ok = True
         if not any_ok:
             raise RuntimeError(

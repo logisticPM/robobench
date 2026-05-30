@@ -41,6 +41,10 @@ def _adapter():
     )
 
 
+def _ok():
+    return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+
+
 def test_check_clock_offset_returns_seconds(mocker):
     """Opens SSH to the robot, reads epoch via `date +%s`, subtracts from local time."""
     fake_local = datetime(2026, 5, 27, 12, 0, 10, tzinfo=UTC)
@@ -194,7 +198,7 @@ def test_shutdown_publishes_zero_cmdvel_and_kills_pid(mocker, tmp_path):
         return_value=MagicMock(returncode=0, stdout="", stderr=""),
     )
 
-    _adapter().shutdown(pid_path=pid_path)
+    _adapter().shutdown(pid_path=pid_path, sleep=lambda _s: None)
 
     # First call must be a ros2 topic pub publishing zeros to /<ns>/cmd_vel.
     first_cmd = run_mock.call_args_list[0].args[0]
@@ -212,7 +216,7 @@ def test_shutdown_is_idempotent_when_no_pidfile(mocker, tmp_path):
         return_value=MagicMock(returncode=0, stdout="", stderr=""),
     )
 
-    _adapter().shutdown(pid_path=pid_path)  # no exception raised
+    _adapter().shutdown(pid_path=pid_path, sleep=lambda _s: None)  # no exception raised
 
 
 def test_activate_lifecycle_runs_activator_subprocess(mocker):
@@ -233,12 +237,12 @@ def test_activate_lifecycle_runs_activator_subprocess(mocker):
 
 
 def test_activate_lifecycle_raises_on_failure(mocker):
-    """Nonzero exit becomes a RuntimeError that includes stderr."""
+    """Asserts a RuntimeError when BOTH the activator and the CLI fallback fail."""
     mocker.patch(
         "robobench.robots.turtlebot4.run_local",
         return_value=MagicMock(returncode=1, stdout="", stderr="map_server stuck in UNCONFIGURED"),
     )
-    with pytest.raises(RuntimeError, match="map_server stuck"):
+    with pytest.raises(RuntimeError, match="CLI fallback could not activate any node"):
         _adapter().activate_lifecycle(map_yaml="/tmp/my_map.yaml")
 
 
@@ -494,10 +498,6 @@ def test_shutdown_is_graceful_then_forceful(monkeypatch, tmp_path):
     assert any("fastdds" in c and "shm" in c for c in flat)
     assert any("daemon" in c and "stop" in c for c in flat)
     assert any("daemon" in c and "start" in c for c in flat)
-
-
-def _ok():
-    return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
 
 def test_setup_clock_sync_includes_workstation_chrony_check_in_report(mocker):
