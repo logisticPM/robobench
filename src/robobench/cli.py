@@ -305,8 +305,10 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
     )
     state = probe.read()
     event_log = EventLogger()
-    event_log.log("preflight", dataclasses.asdict(state))
-    event_log.close()
+    try:
+        event_log.log("preflight", dataclasses.asdict(state))
+    finally:
+        event_log.close()
     aspect = state.failing_aspect()
     would_do = [a for asp, a, _nuke in _LADDER if asp == aspect]
     print(
