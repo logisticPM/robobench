@@ -35,3 +35,26 @@ def test_run_bridge_raises_clear_error_without_ros2():
         pytest.raises(RuntimeError, match="ROS2"),
     ):
         run_bridge(DiagnosticState(), namespace="ns")
+
+
+def test_dds_env_builds_discovery_server_vars():
+    from robobench.panels.bridge import dds_env  # noqa: PLC0415
+
+    env = dds_env("192.168.50.31:11811")
+    assert env["ROS_DISCOVERY_SERVER"] == "192.168.50.31:11811"
+    assert env["RMW_IMPLEMENTATION"] == "rmw_fastrtps_cpp"
+    assert env["ROS_SUPER_CLIENT"] == "True"
+
+
+def test_clock_offset_from_stamp_positive_when_robot_behind():
+    """offset = now - stamp; robot stamp older than local now => positive
+    (matches check_clock_offset's 'positive = robot behind' convention)."""
+    from robobench.panels.bridge import clock_offset_from_stamp  # noqa: PLC0415
+
+    assert clock_offset_from_stamp(now_s=1000.0, stamp_s=995.0) == 5.0  # noqa: PLR2004
+
+
+def test_clock_offset_from_stamp_negative_when_robot_ahead():
+    from robobench.panels.bridge import clock_offset_from_stamp  # noqa: PLC0415
+
+    assert clock_offset_from_stamp(now_s=1000.0, stamp_s=1003.0) == -3.0  # noqa: PLR2004

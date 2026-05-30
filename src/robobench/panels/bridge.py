@@ -11,7 +11,34 @@ All analysis happens in robobench.panels.analyzers over snapshots.
 
 from __future__ import annotations
 
+import os
+
 from robobench.panels.state import DiagnosticState
+
+
+def dds_env(discovery_server: str) -> dict[str, str]:
+    """Env vars that point rclpy at the robot's FastDDS Discovery Server.
+
+    ``discovery_server`` is ``"ip:port"``. These mirror what the upstream
+    deploy.sh exported; setting them before rclpy.init() lets the dashboard
+    connect from config.yaml instead of relying on a hand-exported shell env.
+    """
+    return {
+        "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
+        "ROS_DISCOVERY_SERVER": discovery_server,
+        "ROS_SUPER_CLIENT": "True",
+    }
+
+
+def clock_offset_from_stamp(now_s: float, stamp_s: float) -> float:
+    """Clock-offset proxy in seconds: ``now - stamp`` (positive = robot behind).
+
+    A sensor message's header stamp is the robot's time at publish; comparing
+    it to local wall time gives clock drift (plus sub-100ms transport latency,
+    negligible against the 2s/10s thresholds). Matches the sign convention of
+    ``TurtleBot4Adapter.check_clock_offset`` (local - robot).
+    """
+    return now_s - stamp_s
 
 
 def _lazy_imports() -> dict:
@@ -42,12 +69,15 @@ def _stamp_to_float(stamp) -> float:
     return stamp.sec + stamp.nanosec * 1e-9
 
 
-def run_bridge(state: DiagnosticState, namespace: str) -> None:
+def run_bridge(state: DiagnosticState, namespace: str, discovery_server: str | None = None) -> None:
     """Spin a node that fills ``state`` from robot topics. Blocks until shutdown.
 
     Intended to run in a daemon thread. Raises RuntimeError immediately if
-    ROS2 isn't importable.
+    ROS2 isn't importable. If ``discovery_server`` ("ip:port") is given, the
+    FastDDS Discovery Server env is set from it before rclpy initializes.
     """
+    if discovery_server:
+        os.environ.update(dds_env(discovery_server))
     ros = _lazy_imports()
     rclpy = ros["rclpy"]
     Node = ros["Node"]
@@ -65,7 +95,11 @@ def run_bridge(state: DiagnosticState, namespace: str) -> None:
     scan_topic = f"/{namespace}/scan" if namespace else "/scan"
 
     def on_scan(msg) -> None:
-        state.record_scan(_stamp_to_float(msg.header.stamp))
+        import time as _time  # noqa: PLC0415
+
+        stamp = _stamp_to_float(msg.header.stamp)
+        state.record_scan(stamp)
+        state.set_clock_offset(clock_offset_from_stamp(_time.time(), stamp))
 
     def on_tf(msg) -> None:
         transforms = [
