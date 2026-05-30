@@ -5,6 +5,19 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0a0] — 2026-05-29
+
+### Added
+
+- **`robobench bridge`** — DDS topic relay. Republishes robot topics
+  (odom/scan/imu/tf/tf_static) from the FastDDS Discovery-Server graph onto the
+  workstation's Simple-Discovery graph, and relays `cmd_vel` back. Survives
+  Discovery-Server late-joiner drops (Nav2 #3560). Ports upstream `dds_bridge.py`
+  + `bridge_topics.sh` as a testable pure-core (`robobench.relay.specs`) + lazy
+  rclpy runner.
+- `robobench._rosenv.require_rclpy()` — shared, consistent "you need ROS2" guard.
+- Tutorial: `docs/tutorials/bridging-dds-topics.md`.
+
 ## [0.5.1a0] — 2026-05-29
 
 ### Fixed
