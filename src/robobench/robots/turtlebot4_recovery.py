@@ -9,10 +9,13 @@ single small action the engine composes, NOT a fixed chain.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 
 from robobench._process import run_local
 from robobench.recovery.actions import RecoveryActions
+from robobench.recovery.engine import RecoveryEngine
+from robobench.robots.turtlebot4_probe import TurtleBot4Probe
 from robobench.ssh import SSHClient
 
 _CREATE3_IP = "192.168.186.2"
@@ -79,3 +82,29 @@ class TurtleBot4RecoveryActions(RecoveryActions):
             ["curl", "-s", "-m", "15", "-X", "POST", f"http://{_CREATE3_IP}/api/reboot"],
             timeout=25,
         )
+
+
+def build_turtlebot4_recovery(
+    ip: str,
+    ssh_user: str,
+    ssh_pass: str,
+    namespace: str,
+    *,
+    allow_reboot: bool,
+    deadline_s: float,
+    settle_s: float = 8.0,
+) -> RecoveryEngine:
+    """Wire a TurtleBot4 probe + actions into a ready-to-run RecoveryEngine."""
+    probe = TurtleBot4Probe(ip=ip, ssh_user=ssh_user, ssh_pass=ssh_pass, namespace=namespace)
+    actions = TurtleBot4RecoveryActions(
+        ip=ip, ssh_user=ssh_user, ssh_pass=ssh_pass, namespace=namespace
+    )
+    return RecoveryEngine(
+        probe=probe.read,
+        actions=actions,
+        allow_reboot=allow_reboot,
+        deadline_s=deadline_s,
+        settle_s=settle_s,
+        sleep=time.sleep,
+        now=time.monotonic,
+    )

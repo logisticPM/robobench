@@ -5,7 +5,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from robobench.recovery.actions import RecoveryActions
-from robobench.robots.turtlebot4_recovery import TurtleBot4RecoveryActions
+from robobench.recovery.engine import RecoveryEngine
+from robobench.robots.turtlebot4_recovery import (
+    TurtleBot4RecoveryActions,
+    build_turtlebot4_recovery,
+)
 
 
 def _actions():
@@ -71,3 +75,15 @@ def test_restart_create3_app_hits_restart_app_endpoint():
     a.restart_create3_app()
     joined = " ".join(" ".join(c.args[0]) for c in ssh.run.call_args_list)
     assert "restart-app" in joined.lower()
+
+
+def test_factory_builds_engine_with_probe_and_actions():
+    engine = build_turtlebot4_recovery(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="tb4",
+        allow_reboot=True,
+        deadline_s=120.0,
+    )
+    assert isinstance(engine, RecoveryEngine)
