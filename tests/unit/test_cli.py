@@ -400,3 +400,58 @@ def test_recover_writes_event_log(monkeypatch, tmp_path, capsys):
     assert rc == 0
     assert captured["event_log"] is not None  # a real EventLogger was passed
     assert "event log:" in capsys.readouterr().out
+
+
+def test_bringup_resolves_named_pose(monkeypatch, tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "robot:\n  ip: i\n  ssh_user: u\n  ssh_pass: p\n  namespace: tb\n"
+        "workspace:\n  dir: /ws\n"
+        "known_poses:\n  front_door: {x: 5.19, y: 2.56, theta: 0.0}\n",
+        encoding="utf-8",
+    )
+    poses_set: list[tuple] = []
+
+    class FakeAdapter:
+        def __init__(self, **kw):
+            pass
+
+        def setup_clock_sync(self, **kw):
+            pass
+
+        def build(self):
+            pass
+
+        def launch(self):
+            pass
+
+        def activate_lifecycle(self, map_yaml=None):
+            pass
+
+        def set_initial_pose(self, x, y, theta):
+            poses_set.append((x, y, theta))
+
+        def health_check(self):
+            return {"overall": "HEALTHY", "checks": {}}
+
+    monkeypatch.setattr("robobench.cli.TurtleBot4Adapter", FakeAdapter)
+
+    rc = main(
+        [
+            "bringup",
+            "--robot",
+            "turtlebot4",
+            "--config",
+            str(cfg),
+            "--workstation-ip",
+            "192.168.1.2",
+            "--map-yaml",
+            "/m.yaml",
+            "--pose",
+            "front_door",
+            "--skip-clock",
+            "--skip-build",
+        ]
+    )
+    assert rc == 0
+    assert poses_set == [(5.19, 2.56, 0.0)]

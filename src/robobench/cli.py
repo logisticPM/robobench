@@ -68,7 +68,12 @@ def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
         nargs=3,
         metavar=("X", "Y", "THETA"),
         type=float,
-        required=True,
+        default=None,
+    )
+    bringup.add_argument(
+        "--pose",
+        default=None,
+        help="Named pose from config.yaml known_poses, or 'x y theta'.",
     )
     bringup.add_argument("--skip-clock", action="store_true")
     bringup.add_argument("--skip-build", action="store_true")
@@ -177,7 +182,15 @@ def _cmd_bringup(args: argparse.Namespace) -> int:
     kwargs = load_adapter_config(Path(args.config))
     adapter = TurtleBot4Adapter(**kwargs)
 
-    x, y, theta = args.initial_pose
+    from robobench.config import load_known_poses, resolve_pose  # noqa: PLC0415
+
+    if args.pose is not None:
+        x, y, theta = resolve_pose(args.pose, load_known_poses(Path(args.config)))
+    elif args.initial_pose is not None:
+        x, y, theta = args.initial_pose
+    else:
+        print("bringup requires --pose or --initial-pose", file=sys.stderr)
+        return 2
     print(f"[1/5] clock sync ({'skipped' if args.skip_clock else 'running'}) ...")
     if not args.skip_clock:
         adapter.setup_clock_sync(workstation_ip=args.workstation_ip)
