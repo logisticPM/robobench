@@ -73,6 +73,46 @@ FAILURE_CATALOG: dict[str, list[dict]] = {
             "link": None,
         },
     ],
+    "rpi_reachable": [
+        {
+            "cause": "The robot's RPi is off, not on the network, or at a different IP.",
+            "fix": "Check the robot is powered and on the same network; verify "
+            "`robot.ip` in config.yaml; try `ping <ip>`.",
+            "link": None,
+        },
+    ],
+    "discovery_server_ok": [
+        {
+            "cause": "The FastDDS Discovery Server isn't listening on the robot.",
+            "fix": "SSH in and `sudo systemctl restart discovery.service`; confirm "
+            "port 11811 with `ss -ulnp | grep 11811`. (Nav2 #3560)",
+            "link": "https://github.com/ros-navigation/navigation2/issues/3560",
+        },
+    ],
+    "clock_synced": [
+        {
+            "cause": "Workstation and robot clocks have drifted apart.",
+            "fix": "Run `robobench bringup` (configures chrony), or "
+            "`ssh <robot> 'sudo chronyc -a makestep'`.",
+            "link": None,
+        },
+    ],
+    "create3_topics": [
+        {
+            "cause": "No /<namespace>/ topics — the Create3 base isn't publishing.",
+            "fix": "Restart the Create3 app, or run `robobench recover`. "
+            "Check the Create3 web UI at http://192.168.186.2.",
+            "link": None,
+        },
+    ],
+    "tb4_nodes_present": [
+        {
+            "cause": "The TurtleBot4 ROS nodes (Nav2 etc.) didn't come up.",
+            "fix": "Re-run `robobench-lifecycle-activator`, or `robobench recover`; "
+            "check the bring-up service: `systemctl status turtlebot4`.",
+            "link": None,
+        },
+    ],
 }
 
 

@@ -34,3 +34,18 @@ def test_lookup_fixes_unknown_check_returns_empty():
 def test_tf_tree_suggests_odom_tf_helper():
     fixes = lookup_fixes("tf_tree", "FAIL")
     assert any("robobench odom-tf" in f["fix"] for f in fixes)
+
+
+def test_connectivity_aspect_fixes_present():
+    from robobench.panels.catalog import lookup_fixes
+
+    for aspect in (
+        "rpi_reachable",
+        "discovery_server_ok",
+        "clock_synced",
+        "create3_topics",
+        "tb4_nodes_present",
+    ):
+        fixes = lookup_fixes(aspect, "FAIL")
+        assert fixes, f"no catalog fixes for {aspect}"
+        assert "fix" in fixes[0] and "cause" in fixes[0]
