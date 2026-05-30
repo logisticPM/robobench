@@ -53,3 +53,17 @@ def test_clear_scans_empties_the_deque():
         s.record_scan(t)
     s.clear_scans()
     assert list(s.scan_timestamps()) == []
+
+
+def test_connectivity_defaults_none_and_roundtrips():
+    from robobench.panels.state import DiagnosticState
+    from robobench.recovery.state import RobotState
+
+    state = DiagnosticState()
+    assert state.connectivity() is None
+    assert state.snapshot()["connectivity"] is None
+
+    rs = RobotState(True, False, True, 0, False, True)
+    state.set_connectivity(rs)
+    assert state.connectivity() == rs
+    assert state.snapshot()["connectivity"] == rs

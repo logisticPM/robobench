@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import threading
 from collections import deque
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from robobench.recovery.state import RobotState
 
 
 class DiagnosticState:
@@ -20,6 +24,7 @@ class DiagnosticState:
         self._tf: list[tuple[str, str, float]] = []
         self._nodes: list[str] = []
         self._clock_offset: float | None = None
+        self._connectivity: RobotState | None = None
 
     def record_scan(self, stamp: float) -> None:
         with self._lock:
@@ -58,6 +63,14 @@ class DiagnosticState:
         with self._lock:
             return self._clock_offset
 
+    def set_connectivity(self, state: RobotState | None) -> None:
+        with self._lock:
+            self._connectivity = state
+
+    def connectivity(self) -> RobotState | None:
+        with self._lock:
+            return self._connectivity
+
     def snapshot(self) -> dict:
         """Return a consistent plain-dict copy of all state under one lock."""
         with self._lock:
@@ -66,4 +79,5 @@ class DiagnosticState:
                 "tf": list(self._tf),
                 "nodes": list(self._nodes),
                 "clock_offset": self._clock_offset,
+                "connectivity": self._connectivity,
             }
