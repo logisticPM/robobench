@@ -6,6 +6,8 @@ from robobench.recovery.state import RobotState
 _OK = RobotState(True, True, True, 5, True, True)
 _BAD = RobotState(True, False, True, 0, False, True)
 
+_CYCLES = 2
+
 
 def test_loop_writes_connectivity_each_cycle_and_stops():
     state = DiagnosticState()
@@ -25,10 +27,10 @@ def test_loop_writes_connectivity_each_cycle_and_stops():
         Probe(),
         interval=1.0,
         sleep=fake_sleep,
-        should_stop=lambda: counter["n"] >= 2,
+        should_stop=lambda: counter["n"] >= _CYCLES,
     )
     assert state.connectivity() == _OK  # last write wins
-    assert counter["n"] == 2  # exactly two cycles
+    assert counter["n"] == _CYCLES  # exactly two cycles
 
 
 def test_loop_survives_probe_exception():
@@ -50,7 +52,7 @@ def test_loop_survives_probe_exception():
         Probe(),
         interval=0.0,
         sleep=fake_sleep,
-        should_stop=lambda: calls["sleep"] >= 2,
+        should_stop=lambda: calls["sleep"] >= _CYCLES,
     )
     # first cycle raised but was swallowed; second cycle wrote a result
     assert state.connectivity() == _OK

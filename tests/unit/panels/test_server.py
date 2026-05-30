@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from robobench.panels.server import create_app
 from robobench.panels.state import DiagnosticState
+from robobench.recovery.state import RobotState
 
 # Test constants for magic number suppression
 SMALL_OFFSET = 0.3
@@ -121,12 +122,6 @@ def test_static_assets_are_mounted():
 
 
 def test_connectivity_panel_unknown_then_fail():
-    from fastapi.testclient import TestClient
-
-    from robobench.panels.server import create_app
-    from robobench.panels.state import DiagnosticState
-    from robobench.recovery.state import RobotState
-
     state = DiagnosticState()
     client = TestClient(create_app(state, namespace="tb", expected_nodes=[]))
 

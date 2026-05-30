@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from robobench.panels.state import DiagnosticState
+from robobench.recovery.state import RobotState
 
 
 def test_record_scan_keeps_bounded_timestamps():
@@ -56,9 +57,6 @@ def test_clear_scans_empties_the_deque():
 
 
 def test_connectivity_defaults_none_and_roundtrips():
-    from robobench.panels.state import DiagnosticState
-    from robobench.recovery.state import RobotState
-
     state = DiagnosticState()
     assert state.connectivity() is None
     assert state.snapshot()["connectivity"] is None

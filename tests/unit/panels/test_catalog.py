@@ -37,8 +37,6 @@ def test_tf_tree_suggests_odom_tf_helper():
 
 
 def test_connectivity_aspect_fixes_present():
-    from robobench.panels.catalog import lookup_fixes
-
     for aspect in (
         "rpi_reachable",
         "discovery_server_ok",

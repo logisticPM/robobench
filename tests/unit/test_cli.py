@@ -8,6 +8,9 @@ import pytest
 
 from robobench import __version__, cli
 from robobench.cli import main
+from robobench.panels.connectivity_probe import run_connectivity_probe
+
+_DEFAULT_SSH_PROBE_INTERVAL = 20.0
 
 # argparse exit code when subcommand is required but not provided
 _ARGPARSE_USAGE_ERROR = 2
@@ -148,8 +151,8 @@ def test_dashboard_subcommand_starts_server(mocker, tmp_path):
 
     assert rc == 0
     create_app_mock.assert_called_once()
-    thread_mock.assert_called_once()
-    assert thread_mock.call_args.kwargs.get("daemon") is True
+    assert thread_mock.call_count >= 1  # bridge thread + optional probe thread
+    assert all(c.kwargs.get("daemon") is True for c in thread_mock.call_args_list)
     run_mock.assert_called_once()
     assert run_mock.call_args.kwargs.get("port") == 9090  # noqa: PLR2004
 
@@ -192,7 +195,9 @@ def test_dashboard_passes_discovery_server_from_config(mocker, tmp_path):
     rc = main(["dashboard", "--robot", "turtlebot4", "--config", str(cfg)])
 
     assert rc == 0
-    args = thread_mock.call_args.kwargs.get("args")
+    # The bridge thread is the first Thread() call; check its args contain the discovery server
+    bridge_call = thread_mock.call_args_list[0]
+    args = bridge_call.kwargs.get("args")
     assert args is not None
     assert "192.168.50.31:11811" in args
 
@@ -400,6 +405,63 @@ def test_recover_writes_event_log(monkeypatch, tmp_path, capsys):
     assert rc == 0
     assert captured["event_log"] is not None  # a real EventLogger was passed
     assert "event log:" in capsys.readouterr().out
+
+
+def _dashboard_config(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "robot:\n  ip: 1.2.3.4\n  ssh_user: u\n  ssh_pass: p\n  namespace: tb\n"
+        "dds:\n  discovery_port: 11811\n",
+        encoding="utf-8",
+    )
+    return cfg
+
+
+def test_dashboard_starts_connectivity_probe_thread(monkeypatch, tmp_path):
+    created = []
+
+    class FakeThread:
+        def __init__(self, target=None, args=(), kwargs=None, daemon=False):
+            created.append({"target": target, "kwargs": kwargs or {}})
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr("robobench.cli.threading.Thread", FakeThread)
+    monkeypatch.setattr("robobench.cli.uvicorn.run", lambda *a, **k: None)
+
+    rc = main(["dashboard", "--robot", "turtlebot4", "--config", str(_dashboard_config(tmp_path))])
+    assert rc == 0
+    probe_threads = [c for c in created if c["target"] is run_connectivity_probe]
+    assert len(probe_threads) == 1
+    assert probe_threads[0]["kwargs"]["interval"] == _DEFAULT_SSH_PROBE_INTERVAL
+
+
+def test_dashboard_no_ssh_probe_skips_thread(monkeypatch, tmp_path):
+    created = []
+
+    class FakeThread:
+        def __init__(self, target=None, args=(), kwargs=None, daemon=False):
+            created.append(target)
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr("robobench.cli.threading.Thread", FakeThread)
+    monkeypatch.setattr("robobench.cli.uvicorn.run", lambda *a, **k: None)
+
+    rc = main(
+        [
+            "dashboard",
+            "--robot",
+            "turtlebot4",
+            "--config",
+            str(_dashboard_config(tmp_path)),
+            "--no-ssh-probe",
+        ]
+    )
+    assert rc == 0
+    assert run_connectivity_probe not in created
 
 
 def test_bringup_resolves_named_pose(monkeypatch, tmp_path):

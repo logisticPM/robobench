@@ -99,6 +99,17 @@ def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
         action="store_true",
         help="Seed synthetic data instead of connecting to a robot (no ROS2 needed).",
     )
+    dashboard.add_argument(
+        "--no-ssh-probe",
+        action="store_true",
+        help="Disable the SSH connectivity probe (pure-DDS dashboard).",
+    )
+    dashboard.add_argument(
+        "--ssh-probe-interval",
+        type=float,
+        default=20.0,
+        help="Seconds between SSH connectivity probes (default 20).",
+    )
     dashboard.set_defaults(func=_cmd_dashboard)
 
     preflight = subparsers.add_parser(
@@ -285,6 +296,18 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
         import time  # noqa: PLC0415
 
         seed_demo_state(state, now=time.time())
+        from robobench.recovery.state import RobotState  # noqa: PLC0415
+
+        state.set_connectivity(
+            RobotState(
+                rpi_reachable=True,
+                discovery_server_ok=False,
+                clock_synced=True,
+                create3_topics=0,
+                tb4_nodes_present=False,
+                odom_publishing=True,
+            )
+        )
         threading.Thread(target=_demo_refresh_loop, args=(state,), daemon=True).start()
         expected_nodes = DEMO_EXPECTED_NODES
         print("[dashboard] demo mode — serving synthetic data (no robot needed)")
@@ -296,6 +319,25 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
             daemon=True,
         ).start()
         print(f"[dashboard] connecting via Discovery Server {discovery_server}")
+        if not args.no_ssh_probe:
+            from robobench.panels.connectivity_probe import run_connectivity_probe  # noqa: PLC0415
+
+            probe = TurtleBot4Probe(
+                ip=kwargs["ip"],
+                ssh_user=kwargs["ssh_user"],
+                ssh_pass=kwargs["ssh_pass"],
+                namespace=namespace,
+            )
+            threading.Thread(
+                target=run_connectivity_probe,
+                args=(state, probe),
+                kwargs={"interval": args.ssh_probe_interval},
+                daemon=True,
+            ).start()
+            print(
+                f"[dashboard] SSH connectivity probe every "
+                f"{args.ssh_probe_interval:.0f}s"
+            )
         expected_nodes = _DEFAULT_EXPECTED_NODES
 
     app = create_app(state, namespace=namespace, expected_nodes=expected_nodes)

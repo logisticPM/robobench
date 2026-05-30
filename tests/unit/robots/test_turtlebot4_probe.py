@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import subprocess
 from unittest.mock import MagicMock
 
 from robobench.robots.turtlebot4_probe import (
     TurtleBot4Probe,
     _parse_int,
 )
+
+_CONNECTIVITY_TOPIC_COUNT = 12
 
 
 def _probe(ssh_results, local_results=None):
@@ -133,8 +136,6 @@ class _RecordingSSH:
         return False
 
     def run(self, cmd, timeout=None):
-        import subprocess
-
         self._commands.append(cmd)
         text = " ".join(cmd)
         if "11811" in text:
@@ -142,7 +143,7 @@ class _RecordingSSH:
         elif cmd[:2] == ["date", "+%s"]:
             out = "0"  # ancient time -> clock NOT synced (drift huge)
         elif "topic list" in text:
-            out = "12"
+            out = str(_CONNECTIVITY_TOPIC_COUNT)
         elif "node list" in text:
             out = "/tb/node\n"
         else:
@@ -151,8 +152,6 @@ class _RecordingSSH:
 
 
 def test_read_connectivity_skips_odom_echo():
-    from robobench.robots.turtlebot4_probe import TurtleBot4Probe
-
     commands: list = []
     probe = TurtleBot4Probe(
         ip="1.2.3.4",
@@ -171,13 +170,11 @@ def test_read_connectivity_skips_odom_echo():
     # the five transport layers reflect the fake responses
     assert state.rpi_reachable is True
     assert state.discovery_server_ok is True
-    assert state.create3_topics == 12
+    assert state.create3_topics == _CONNECTIVITY_TOPIC_COUNT
     assert state.tb4_nodes_present is True
 
 
 def test_read_connectivity_short_circuits_on_unreachable():
-    from robobench.robots.turtlebot4_probe import TurtleBot4Probe
-
     commands: list = []
     probe = TurtleBot4Probe(
         ip="1.2.3.4",
