@@ -75,8 +75,9 @@ def resolve_pose(value: str, known_poses: dict[str, dict]) -> tuple[float, float
     if value in known_poses:
         p = known_poses[value]
         return (float(p["x"]), float(p["y"]), float(p["theta"]))
+    _POSE_PARTS = 3
     parts = value.split()
-    if len(parts) == 3:
+    if len(parts) == _POSE_PARTS:
         try:
             x, y, theta = (float(p) for p in parts)
             return (x, y, theta)

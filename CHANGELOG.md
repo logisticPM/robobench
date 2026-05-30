@@ -5,6 +5,15 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.1a0] — 2026-05-29
+
+### Added
+
+- **Named poses.** `robobench bringup --pose front_door` resolves from a
+  `known_poses` map in config.yaml (or accepts a raw `'x y theta'`). New
+  `robobench.config.load_known_poses` / `resolve_pose`. `--initial-pose` is now
+  optional (one of the two is required). Ports upstream deploy.sh `--pose`.
+
 ## [0.9.0a0] — 2026-05-29
 
 ### Changed
