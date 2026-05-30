@@ -5,6 +5,17 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.0a0] — 2026-05-29
+
+### Changed
+
+- **Graceful shutdown.** `TurtleBot4Adapter.shutdown()` now SIGTERMs the nav
+  stack, waits, then SIGKILLs stragglers, runs `fastdds shm clean` (no more
+  leaked /dev/shm segments — FastDDS#2790), and restarts the ros2 daemon.
+- **Lifecycle CLI fallback.** `activate_lifecycle()` falls back to per-node
+  `ros2 lifecycle set configure/activate` if the persistent activator fails,
+  instead of giving up (mirrors upstream deploy.sh).
+
 ## [0.8.0a0] — 2026-05-29
 
 ### Added

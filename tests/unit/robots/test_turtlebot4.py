@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import subprocess
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
 
 from robobench.adapter_base import RobotAdapter
+from robobench.robots import turtlebot4
 from robobench.robots.turtlebot4 import TurtleBot4Adapter
 
 
@@ -470,8 +472,6 @@ def test_launch_uses_configured_package_and_file(mocker, tmp_path):
 
 
 def test_shutdown_is_graceful_then_forceful(monkeypatch, tmp_path):
-    from robobench.robots import turtlebot4
-
     calls: list[list[str]] = []
     monkeypatch.setattr(
         turtlebot4,
@@ -497,8 +497,6 @@ def test_shutdown_is_graceful_then_forceful(monkeypatch, tmp_path):
 
 
 def _ok():
-    import subprocess
-
     return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
 
@@ -535,11 +533,7 @@ def test_setup_clock_sync_includes_workstation_chrony_check_in_report(mocker):
 
 
 def test_activate_lifecycle_falls_back_to_cli(monkeypatch):
-    from robobench.robots import turtlebot4
-
     def fake_run(cmd, timeout=None, **kw):
-        import subprocess
-
         rc = 1 if "robobench-lifecycle-activator" in cmd else 0
         return subprocess.CompletedProcess(cmd, rc, "", "boom" if rc else "")
 
@@ -558,13 +552,7 @@ def test_activate_lifecycle_falls_back_to_cli(monkeypatch):
 
 
 def test_activate_lifecycle_raises_when_fallback_also_fails(monkeypatch):
-    import pytest
-
-    from robobench.robots import turtlebot4
-
     def fake_run(cmd, timeout=None, **kw):
-        import subprocess
-
         return subprocess.CompletedProcess(cmd, 1, "", "fail")
 
     monkeypatch.setattr(turtlebot4, "run_local", fake_run)
