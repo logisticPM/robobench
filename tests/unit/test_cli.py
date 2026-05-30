@@ -329,3 +329,28 @@ def test_recover_nonzero_when_not_converged(mocker, tmp_path):
 
     rc = main(["recover", "--robot", "turtlebot4", "--config", str(cfg), "--deadline", "30"])
     assert rc == 1
+
+
+def test_bridge_invokes_runner(monkeypatch, tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "robot:\n"
+        "  ip: 1.2.3.4\n"
+        "  ssh_user: ubuntu\n"
+        "  ssh_pass: pw\n"
+        "  namespace: tb\n"
+        "dds:\n"
+        "  discovery_port: 11811\n",
+        encoding="utf-8",
+    )
+    calls = {}
+
+    def fake_run(namespace, discovery_server):
+        calls["namespace"] = namespace
+        calls["discovery_server"] = discovery_server
+
+    monkeypatch.setattr("robobench.relay.runner.run_dds_bridge", fake_run)
+
+    rc = main(["bridge", "--robot", "turtlebot4", "--config", str(cfg)])
+    assert rc == 0
+    assert calls == {"namespace": "tb", "discovery_server": "1.2.3.4:11811"}

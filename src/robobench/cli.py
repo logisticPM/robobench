@@ -120,6 +120,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     recover.set_defaults(func=_cmd_recover)
 
+    bridge = subparsers.add_parser(
+        "bridge",
+        help="Relay robot topics from the Discovery Server to local Simple Discovery.",
+    )
+    bridge.add_argument("--robot", required=True, choices=["turtlebot4"])
+    bridge.add_argument("--config", required=True)
+    bridge.set_defaults(func=_cmd_bridge)
+
     return parser
 
 
@@ -343,6 +351,25 @@ def _cmd_recover(args: argparse.Namespace) -> int:
     if result.outcome == "NEEDS_HUMAN":
         print("  robot unreachable — check power and network.", file=sys.stderr)
     return 0 if result.outcome == "CONVERGED" else 1
+
+
+def _cmd_bridge(args: argparse.Namespace) -> int:
+    if args.robot != "turtlebot4":
+        print(f"unsupported robot: {args.robot}", file=sys.stderr)
+        return 2
+    kwargs = load_adapter_config(Path(args.config))
+    namespace = kwargs["namespace"]
+    discovery_server = f"{kwargs['ip']}:{kwargs['discovery_port']}"
+    from robobench.relay.runner import run_dds_bridge  # noqa: PLC0415
+
+    print(f"[bridge] relaying {namespace} topics via Discovery Server {discovery_server}")
+    print("[bridge] Ctrl+C to stop.")
+    try:
+        run_dds_bridge(namespace=namespace, discovery_server=discovery_server)
+    except RuntimeError as exc:
+        print(f"[bridge] not started: {exc}", file=sys.stderr)
+        return 2
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
