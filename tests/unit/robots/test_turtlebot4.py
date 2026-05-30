@@ -469,6 +469,39 @@ def test_launch_uses_configured_package_and_file(mocker, tmp_path):
     assert cmd[3] == "custom.launch.py"
 
 
+def test_shutdown_is_graceful_then_forceful(monkeypatch, tmp_path):
+    from robobench.robots import turtlebot4
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        turtlebot4,
+        "run_local",
+        lambda cmd, timeout=None, **kw: calls.append(list(cmd)) or _ok(),
+    )
+    sleeps: list[float] = []
+
+    adapter = turtlebot4.TurtleBot4Adapter(
+        ip="1.2.3.4", ssh_user="u", ssh_pass="p", namespace="tb"
+    )
+    missing_pid = tmp_path / "nope.pid"
+    adapter.shutdown(pid_path=missing_pid, settle_s=5.0, sleep=sleeps.append)
+
+    flat = [" ".join(c) for c in calls]
+    term_idx = next(i for i, c in enumerate(flat) if "pkill" in c and "-TERM" in c)
+    kill_idx = next(i for i, c in enumerate(flat) if "pkill" in c and "-9" in c)
+    assert term_idx < kill_idx, "SIGTERM must precede SIGKILL"
+    assert sleeps == [5.0]
+    assert any("fastdds" in c and "shm" in c for c in flat)
+    assert any("daemon" in c and "stop" in c for c in flat)
+    assert any("daemon" in c and "start" in c for c in flat)
+
+
+def _ok():
+    import subprocess
+
+    return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+
+
 def test_setup_clock_sync_includes_workstation_chrony_check_in_report(mocker):
     """setup_clock_sync's report includes a workstation_chrony field from the local check."""
     fake_client = MagicMock()

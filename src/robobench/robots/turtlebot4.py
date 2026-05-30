@@ -10,6 +10,8 @@ from __future__ import annotations
 import math
 import shlex
 import subprocess
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -310,8 +312,20 @@ class TurtleBot4Adapter(RobotAdapter):
         "odom_tf_publisher",
     )
 
-    def shutdown(self, pid_path: Path | None = None) -> None:
-        """Stop the navigation stack: zero cmd_vel, kill the launcher PID, pkill stragglers."""
+    def shutdown(
+        self,
+        pid_path: Path | None = None,
+        *,
+        settle_s: float = 5.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        """Stop the navigation stack gracefully.
+
+        SIGTERM first (lets on_shutdown handlers release FastDDS shared memory),
+        wait ``settle_s``, then SIGKILL stragglers. Cleans /dev/shm FastDDS
+        segments and restarts the ros2 daemon so the next bring-up starts clean.
+        Refs: rclcpp#1704 (SIGTERM since Humble), FastDDS#2790 (SIGKILL leaks shm).
+        """
         target = pid_path if pid_path is not None else Path("/tmp/robobench_launch.pid")
 
         # 1. Zero velocity, in case the robot is moving.
@@ -328,7 +342,7 @@ class TurtleBot4Adapter(RobotAdapter):
             timeout=5.0,
         )
 
-        # 2. Kill the recorded launcher PID, if the PID file still exists.
+        # 2. Kill the recorded launcher PID, if present.
         if target.exists():
             try:
                 pid = int(target.read_text().strip())
@@ -337,6 +351,16 @@ class TurtleBot4Adapter(RobotAdapter):
                 pass
             target.unlink(missing_ok=True)
 
-        # 3. pkill known nav stack process names.
+        # 3. Graceful SIGTERM to all known nav-stack patterns.
+        for pattern in self._PKILL_PATTERNS:
+            run_local(["pkill", "-TERM", "-f", pattern], timeout=2.0)
+
+        # 4. Wait, then SIGKILL anything still alive.
+        sleep(settle_s)
         for pattern in self._PKILL_PATTERNS:
             run_local(["pkill", "-9", "-f", pattern], timeout=2.0)
+
+        # 5. Release FastDDS shared memory (best-effort) and refresh the daemon.
+        run_local(["fastdds", "shm", "clean"], timeout=10.0)
+        run_local(["ros2", "daemon", "stop"], timeout=10.0)
+        run_local(["ros2", "daemon", "start"], timeout=10.0)
