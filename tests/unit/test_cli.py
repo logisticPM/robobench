@@ -589,7 +589,7 @@ def test_adapter_from_config_drops_discovery_port(tmp_path):
 
 def test_main_clean_error_on_missing_config(capsys):
     rc = main(["health", "--robot", "turtlebot4", "--config", "C:/no/such/robobench-config.yaml"])
-    assert rc == 2
+    assert rc == _ARGPARSE_USAGE_ERROR
     err = capsys.readouterr().err
     assert "error:" in err
     assert "Traceback" not in err
