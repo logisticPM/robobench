@@ -15,6 +15,7 @@ from robobench.eventlog import _DEFAULT_LOG_DIR
 from robobench.recovery.state import RobotState
 
 _RECOGNIZED_EVENTS = ("probe", "action", "outcome", "preflight")
+_MIN_STAMPS_FOR_DURATION = 2
 
 
 def latest_event_log(log_dir: Path | None = None) -> Path | None:
@@ -65,10 +66,11 @@ def _hhmmss(ts: str) -> str:
 
 def _duration_s(records: list[dict]) -> float | None:
     stamps = [r["ts"] for r in records if r.get("ts")]
-    if len(stamps) < 2:
+    if len(stamps) < _MIN_STAMPS_FOR_DURATION:
         return None
     try:
-        return (datetime.fromisoformat(stamps[-1]) - datetime.fromisoformat(stamps[0])).total_seconds()
+        delta = datetime.fromisoformat(stamps[-1]) - datetime.fromisoformat(stamps[0])
+        return delta.total_seconds()
     except (ValueError, TypeError):
         return None
 
@@ -99,7 +101,9 @@ def format_report(records: list[dict]) -> str:
             lines.append(f"  {when}  preflight  {preflight_detail}")
         elif event == "action":
             action_count += 1
-            lines.append(f"  {when}  action     {data.get('aspect', '?')} -> {data.get('name', '?')}")
+            aspect = data.get("aspect", "?")
+            name = data.get("name", "?")
+            lines.append(f"  {when}  action     {aspect} -> {name}")
         elif event == "outcome":
             last_outcome = data.get("outcome", "?")
             lines.append(f"  {when}  outcome    {last_outcome}")
@@ -107,7 +111,8 @@ def format_report(records: list[dict]) -> str:
     lines.append("")
     if last_outcome is not None:
         tail = f" in {duration:.1f}s" if duration is not None else ""
-        lines.append(f"summary: {last_outcome} after {action_count} action(s){tail}")
+        noun = "action" if action_count == 1 else "actions"
+        lines.append(f"summary: {last_outcome} after {action_count} {noun}{tail}")
     elif preflight_detail is not None:
         lines.append(f"summary: preflight - {preflight_detail}")
     else:

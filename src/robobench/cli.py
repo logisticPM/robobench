@@ -21,7 +21,7 @@ from pathlib import Path
 from robobench import __version__
 from robobench.config import load_adapter_config, render_config_template
 from robobench.eventlog import EventLogger
-from robobench.eventreport import format_report, latest_event_log, parse_events
+from robobench.eventreport import _RECOGNIZED_EVENTS, format_report, latest_event_log, parse_events
 from robobench.recovery.engine import _LADDER
 from robobench.robots.turtlebot4 import TurtleBot4Adapter
 from robobench.robots.turtlebot4_probe import TurtleBot4Probe
@@ -561,7 +561,7 @@ def _cmd_report(args: argparse.Namespace) -> int:
             print("no session logs in ~/.robobench/logs/", file=sys.stderr)
             return 1
     records = parse_events(target.read_text(encoding="utf-8"))
-    if not any(r.get("event") in ("probe", "action", "outcome", "preflight") for r in records):
+    if not any(r.get("event") in _RECOGNIZED_EVENTS for r in records):
         print(f"no recognizable recover/preflight events in {target}", file=sys.stderr)
         return 2
     print(f"log: {target}")

@@ -50,6 +50,7 @@ def test_format_report_recover_session():
     assert "CONVERGED" in out
     assert "summary:" in out
     assert "1 action" in out
+    assert "action(s)" not in out
 
 
 def test_format_report_preflight():
@@ -60,6 +61,7 @@ def test_format_report_preflight():
     ])
     assert "preflight" in out
     assert "rpi_reachable" in out
+    assert "summary: preflight" in out
 
 
 def test_format_report_no_recognized_events():
