@@ -5,6 +5,25 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.12.1a0] — 2026-05-30
+
+### Fixed
+
+- **Clock sync reads drift before chrony converges.** `setup_clock_sync` now
+  issues `sudo chronyc -a makestep` (over SSH) immediately after restarting
+  chrony, then waits `settle_s` seconds (default 3.0, injectable for tests)
+  before reading `date +%s`. Previously the drift figure reflected the
+  pre-sync gap because the clock hadn't stepped yet.
+- **Initial pose not passed to lifecycle activator.** `activate_lifecycle` now
+  accepts a keyword-only `initial_pose: tuple[float, float, float] | None`
+  parameter. When provided, `--initial-pose-x/y/yaw` flags are appended to the
+  `robobench-lifecycle-activator` command so AMCL receives the correct starting
+  pose during the activation sequence instead of defaulting to (0, 0, 0). The
+  ABC and CLI `bringup` are updated in step.
+- **lifecycle_activator wrote logs to `~/.campus_nav_logs/`** (the upstream
+  project's directory) instead of `~/.robobench/logs/`, inconsistent with the
+  flight recorder. `_LOG_DIR` is now `Path.home() / ".robobench" / "logs"`.
+
 ## [0.12.0a0] — 2026-05-30
 
 ### Added

@@ -273,7 +273,7 @@ def test_activate_lifecycle_passes_initial_pose_flags_to_activator(mocker):
 
 
 def test_activate_lifecycle_omits_pose_flags_when_initial_pose_is_none(mocker):
-    """activate_lifecycle without initial_pose does NOT include --initial-pose-x (backward compat)."""
+    """activate_lifecycle without initial_pose does NOT include --initial-pose-x."""
     run_mock = mocker.patch(
         "robobench.robots.turtlebot4.run_local",
         return_value=MagicMock(returncode=0, stdout="all activated\n", stderr=""),
