@@ -5,6 +5,18 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.11.0a0] — 2026-05-30
+
+### Added
+
+- **One-click Recover in the dashboard.** The connectivity card gains
+  **Preview** (instant plan from the current diagnosis) and **Apply** (runs the
+  recovery engine in a background thread, streaming progress to a polled status
+  endpoint). `RecoveryJob` (thread-safe status + engine event sink),
+  `RecoveryController` (single-flight, `allow_reboot=False`), `POST /api/recover`
+  + `GET /api/recover/status`. The nuclear Create3 reboot is never reachable from
+  the web (CLI-only); disabled in demo mode.
+
 ## [0.10.0a0] — 2026-05-30
 
 ### Added

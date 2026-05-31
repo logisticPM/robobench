@@ -125,6 +125,20 @@ Flags: `--no-ssh-probe` disables it (pure-DDS dashboard); `--ssh-probe-interval`
 sets the cadence (default 20s). The odom liveness check is intentionally skipped
 here (the sensor panel's scan rate already covers it), keeping each probe fast.
 
+### One-click Recover
+
+Below the connectivity ladder, **Preview recovery** shows what robobench would
+try for the current failing layer (e.g. "Will try: restart_discovery_server"),
+computed instantly from the latest diagnosis. **Apply** then runs the recovery
+engine in the background; the panel streams each action and the final outcome
+(CONVERGED / STUCK / TIMED_OUT / NEEDS_HUMAN), and the ladder above turns green
+as layers recover.
+
+Safety: the nuclear Create3 reboot is **never** available from the web — Apply
+only ever runs the cheap/medium fixes. To reboot the Create3, use the CLI:
+`robobench recover --allow-reboot`. Only one recovery runs at a time. In demo
+mode (no robot) the buttons are disabled.
+
 ## What's next
 
 Phase D adds a browser-driven bring-up wizard (interactive, one-click fixes)
