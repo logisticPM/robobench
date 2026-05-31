@@ -17,6 +17,7 @@ _DEFAULT_SSH_PROBE_INTERVAL = 20.0
 # argparse exit code when subcommand is required but not provided
 _ARGPARSE_USAGE_ERROR = 2
 _OVERWRITE_REFUSED = 2  # _cmd_init returns 2 when the output exists and --force is absent
+_REPORT_UNRECOGNIZED = 2  # _cmd_report returns 2 when the log has no recognized events
 
 
 def test_version_flag_prints_version(capsys):
@@ -627,6 +628,46 @@ def test_init_force_overwrites(tmp_path):
     rc = main(["init", "--output", str(out), "--force"])
     assert rc == 0
     assert "robot:" in out.read_text(encoding="utf-8")
+
+
+_EVENTS_LOG = (
+    '{"ts":"2026-05-31T02:55:53+00:00","session_id":"x","event":"probe",'
+    '"data":{"rpi_reachable":true,"discovery_server_ok":false,"clock_synced":true,'
+    '"create3_topics":5,"tb4_nodes_present":true,"odom_publishing":true}}\n'
+    '{"ts":"2026-05-31T02:56:00+00:00","session_id":"x","event":"outcome",'
+    '"data":{"outcome":"CONVERGED"}}\n'
+)
+
+
+def test_report_renders_given_log(tmp_path, capsys):
+    log = tmp_path / "events_20260101_000000_x.jsonl"
+    log.write_text(_EVENTS_LOG, encoding="utf-8")
+    rc = main(["report", str(log)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "log:" in out
+    assert "CONVERGED" in out
+
+
+def test_report_missing_path_exit_1(capsys):
+    rc = main(["report", "C:/no/such/robobench-log.jsonl"])
+    assert rc == 1
+    assert "not found" in capsys.readouterr().err
+
+
+def test_report_unrecognized_schema_exit_2(tmp_path, capsys):
+    log = tmp_path / "lifecycle_x.jsonl"
+    log.write_text('{"ts":"t","event":"init","namespace":"tb"}\n', encoding="utf-8")
+    rc = main(["report", str(log)])
+    assert rc == _REPORT_UNRECOGNIZED
+    assert "no recognizable" in capsys.readouterr().err
+
+
+def test_report_no_logs_default_exit_1(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr("robobench.eventreport._DEFAULT_LOG_DIR", tmp_path)
+    rc = main(["report"])
+    assert rc == 1
+    assert "no session logs" in capsys.readouterr().err
 
 
 def test_recover_dry_run_unreachable_message(monkeypatch, tmp_path, capsys):

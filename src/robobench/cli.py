@@ -21,6 +21,7 @@ from pathlib import Path
 from robobench import __version__
 from robobench.config import load_adapter_config, render_config_template
 from robobench.eventlog import EventLogger
+from robobench.eventreport import format_report, latest_event_log, parse_events
 from robobench.recovery.engine import _LADDER
 from robobench.robots.turtlebot4 import TurtleBot4Adapter
 from robobench.robots.turtlebot4_probe import TurtleBot4Probe
@@ -179,6 +180,17 @@ def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     )
     init.add_argument("--force", action="store_true", help="Overwrite an existing file.")
     init.set_defaults(func=_cmd_init)
+
+    report = subparsers.add_parser(
+        "report", help="Summarize a recovery/preflight session log (post-mortem)."
+    )
+    report.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Session log to read (default: latest events_*.jsonl in ~/.robobench/logs).",
+    )
+    report.set_defaults(func=_cmd_report)
 
     return parser
 
@@ -534,6 +546,26 @@ def _cmd_init(args: argparse.Namespace) -> int:
         f"next: edit it, then `robobench check --robot turtlebot4 ...` "
         f"or `robobench dashboard --robot turtlebot4 --config {target}`"
     )
+    return 0
+
+
+def _cmd_report(args: argparse.Namespace) -> int:
+    if args.path is not None:
+        target = Path(args.path)
+        if not target.exists():
+            print(f"error: {target} not found", file=sys.stderr)
+            return 1
+    else:
+        target = latest_event_log()
+        if target is None:
+            print("no session logs in ~/.robobench/logs/", file=sys.stderr)
+            return 1
+    records = parse_events(target.read_text(encoding="utf-8"))
+    if not any(r.get("event") in ("probe", "action", "outcome", "preflight") for r in records):
+        print(f"no recognizable recover/preflight events in {target}", file=sys.stderr)
+        return 2
+    print(f"log: {target}")
+    print(format_report(records))
     return 0
 
 
