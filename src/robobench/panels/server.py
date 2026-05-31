@@ -13,9 +13,10 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from robobench.panels.analyzers import (
     build_dds_graph,
@@ -30,16 +31,23 @@ from robobench.panels.state import DiagnosticState
 _STATIC_DIR = Path(__file__).parent / "static"
 
 
+class RecoverRequest(BaseModel):
+    mode: str
+
+
 def create_app(
     state: DiagnosticState,
     namespace: str,
     expected_nodes: list[str] | None = None,
+    *,
+    recovery: object | None = None,
 ) -> FastAPI:
     """Build the FastAPI app bound to a given DiagnosticState."""
     app = FastAPI(title="robobench diagnostics")
     app.state.diag = state
     app.state.namespace = namespace
     app.state.expected_nodes = expected_nodes or []
+    app.state.recovery = recovery
 
     @app.get("/healthz")
     def healthz() -> dict:
@@ -95,6 +103,26 @@ def create_app(
     @app.get("/api/panels/connectivity")
     def connectivity_panel() -> dict:
         return diagnose_connectivity(app.state.diag.connectivity())
+
+    @app.post("/api/recover")
+    def recover(req: RecoverRequest):
+        rec = app.state.recovery
+        if rec is None:
+            raise HTTPException(status_code=403, detail="recovery unavailable (demo or no SSH config)")
+        if req.mode == "preview":
+            return rec.preview(app.state.diag.connectivity())
+        if req.mode == "apply":
+            if not rec.start_apply():
+                raise HTTPException(status_code=409, detail="a recovery is already running")
+            return JSONResponse(status_code=202, content=rec.job.snapshot())
+        raise HTTPException(status_code=400, detail="mode must be 'preview' or 'apply'")
+
+    @app.get("/api/recover/status")
+    def recover_status() -> dict:
+        rec = app.state.recovery
+        if rec is None:
+            return {"available": False, "status": "idle"}
+        return {"available": True, **rec.job.snapshot()}
 
     if _STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")

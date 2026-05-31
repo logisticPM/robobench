@@ -136,3 +136,62 @@ def test_connectivity_panel_unknown_then_fail():
     assert body["first_broken"] == "discovery_server_ok"
     assert body["fixes"]
     assert [layer["name"] for layer in body["layers"]][0] == "rpi_reachable"
+
+
+def _fake_controller():
+    class FakeJob:
+        def snapshot(self):
+            return {"status": "idle", "outcome": None, "actions": [], "steps": [], "error": None}
+
+    class FakeController:
+        def __init__(self):
+            self.job = FakeJob()
+            self.allow_start = True
+
+        def preview(self, conn):
+            return {
+                "available": True,
+                "failing_layer": "discovery_server_ok",
+                "would_try": ["restart_discovery_server"],
+            }
+
+        def start_apply(self):
+            return self.allow_start
+
+    return FakeController()
+
+
+def test_recover_preview_apply_and_conflict():
+    from fastapi.testclient import TestClient
+
+    from robobench.panels.server import create_app
+    from robobench.panels.state import DiagnosticState
+
+    ctrl = _fake_controller()
+    client = TestClient(create_app(DiagnosticState(), namespace="tb", expected_nodes=[], recovery=ctrl))
+
+    r = client.post("/api/recover", json={"mode": "preview"})
+    assert r.status_code == 200
+    assert r.json()["would_try"] == ["restart_discovery_server"]
+
+    assert client.post("/api/recover", json={"mode": "apply"}).status_code == 202
+
+    ctrl.allow_start = False
+    assert client.post("/api/recover", json={"mode": "apply"}).status_code == 409
+
+    assert client.post("/api/recover", json={"mode": "nope"}).status_code == 400
+
+    body = client.get("/api/recover/status").json()
+    assert body["available"] is True
+    assert body["status"] == "idle"
+
+
+def test_recover_unavailable_without_controller():
+    from fastapi.testclient import TestClient
+
+    from robobench.panels.server import create_app
+    from robobench.panels.state import DiagnosticState
+
+    client = TestClient(create_app(DiagnosticState(), namespace="tb", expected_nodes=[]))
+    assert client.post("/api/recover", json={"mode": "apply"}).status_code == 403
+    assert client.get("/api/recover/status").json() == {"available": False, "status": "idle"}
