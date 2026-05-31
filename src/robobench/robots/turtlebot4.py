@@ -56,7 +56,13 @@ class TurtleBot4Adapter(RobotAdapter):
         local_epoch = _now_utc().timestamp()
         return local_epoch - robot_epoch
 
-    def setup_clock_sync(self, workstation_ip: str) -> dict:
+    def setup_clock_sync(
+        self,
+        workstation_ip: str,
+        *,
+        settle_s: float = 3.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> dict:
         """Configure chrony on the robot to follow the workstation; restart Create3 NTP.
 
         Returns a structured report dict. Mirrors upstream ``deploy.sh`` Step 1
@@ -105,6 +111,12 @@ class TurtleBot4Adapter(RobotAdapter):
             report["chrony_configured"] = write.returncode == 0
             if write.returncode != 0:
                 raise RuntimeError(f"chrony config/restart failed: {write.stderr.strip()}")
+
+            # Force chrony to step the clock now and let it settle, so the drift
+            # we read next reflects the synced time (chrony needs a few seconds to
+            # contact the source and step — otherwise drift shows the pre-sync gap).
+            ssh.run(["sudo", "chronyc", "-a", "makestep"], timeout=15)
+            sleep(settle_s)
 
             # 3. Verify drift with a fresh date +%s read.
             date_res = ssh.run(["date", "+%s"], timeout=10)

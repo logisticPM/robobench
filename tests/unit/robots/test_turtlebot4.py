@@ -88,6 +88,7 @@ def test_setup_clock_sync_writes_chrony_conf_and_restarts(mocker):
     fake_client.run.side_effect = [
         MagicMock(returncode=0, stdout="ii  chrony\n", stderr=""),  # dpkg -l chrony
         MagicMock(returncode=0, stdout="", stderr=""),  # tee + restart chrony
+        MagicMock(returncode=0, stdout="", stderr=""),  # chronyc makestep
         MagicMock(returncode=0, stdout="1779883210\n", stderr=""),  # date +%s for drift
         MagicMock(returncode=0, stdout='{"status":"ok"}', stderr=""),  # curl Create3
     ]
@@ -97,7 +98,7 @@ def test_setup_clock_sync_writes_chrony_conf_and_restarts(mocker):
         return_value=datetime(2026, 5, 27, 12, 0, 11, tzinfo=UTC),
     )
 
-    report = _adapter().setup_clock_sync(workstation_ip="192.168.50.10")
+    report = _adapter().setup_clock_sync(workstation_ip="192.168.50.10", sleep=lambda _s: None)
 
     assert report["chrony_installed"] is True
     assert report["chrony_configured"] is True
@@ -114,6 +115,7 @@ def test_setup_clock_sync_installs_chrony_if_missing(mocker):
         MagicMock(returncode=1, stdout="", stderr=""),  # dpkg —not installed
         MagicMock(returncode=0, stdout="", stderr=""),  # apt-get install
         MagicMock(returncode=0, stdout="", stderr=""),  # tee + restart
+        MagicMock(returncode=0, stdout="", stderr=""),  # chronyc makestep
         MagicMock(returncode=0, stdout="1779883210\n", stderr=""),  # date +%s
         MagicMock(returncode=0, stdout="ok", stderr=""),  # curl
     ]
@@ -123,7 +125,7 @@ def test_setup_clock_sync_installs_chrony_if_missing(mocker):
         return_value=datetime(2026, 5, 27, 12, 0, 11, tzinfo=UTC),
     )
 
-    report = _adapter().setup_clock_sync(workstation_ip="192.168.50.10")
+    report = _adapter().setup_clock_sync(workstation_ip="192.168.50.10", sleep=lambda _s: None)
 
     # First call: dpkg check; second call: install
     first_call_cmd = fake_client.run.call_args_list[0].args[0]
@@ -506,10 +508,11 @@ def test_setup_clock_sync_includes_workstation_chrony_check_in_report(mocker):
     fake_client.__enter__.return_value = fake_client
     fake_client.__exit__.return_value = None
     fake_client.run.side_effect = [
-        MagicMock(returncode=0, stdout="ii  chrony\n", stderr=""),
-        MagicMock(returncode=0, stdout="", stderr=""),
-        MagicMock(returncode=0, stdout="1748347210\n", stderr=""),
-        MagicMock(returncode=0, stdout="ok", stderr=""),
+        MagicMock(returncode=0, stdout="ii  chrony\n", stderr=""),  # dpkg
+        MagicMock(returncode=0, stdout="", stderr=""),  # tee + restart
+        MagicMock(returncode=0, stdout="", stderr=""),  # chronyc makestep
+        MagicMock(returncode=0, stdout="1748347210\n", stderr=""),  # date +%s
+        MagicMock(returncode=0, stdout="ok", stderr=""),  # curl
     ]
     mocker.patch("robobench.robots.turtlebot4.SSHClient", return_value=fake_client)
     mocker.patch(
@@ -526,10 +529,47 @@ def test_setup_clock_sync_includes_workstation_chrony_check_in_report(mocker):
         },
     )
 
-    report = _adapter().setup_clock_sync(workstation_ip="10.0.0.5")
+    report = _adapter().setup_clock_sync(workstation_ip="10.0.0.5", sleep=lambda _s: None)
 
     assert "workstation_chrony" in report
     assert report["workstation_chrony"]["status"] == "WARN"
+
+
+def test_setup_clock_sync_issues_makestep_before_drift_read(mocker):
+    """chronyc makestep is called AFTER chrony restart and BEFORE date +%s drift read."""
+    fake_client = MagicMock()
+    fake_client.__enter__.return_value = fake_client
+    fake_client.__exit__.return_value = None
+
+    calls: list[list] = []
+
+    def recording_run(cmd, **kwargs):
+        calls.append(list(cmd))
+        # Provide realistic return values for each call
+        if cmd[0] == "dpkg":
+            return MagicMock(returncode=0, stdout="ii  chrony\n", stderr="")
+        if cmd[0] == "date":
+            return MagicMock(returncode=0, stdout="1779883210\n", stderr="")
+        return MagicMock(returncode=0, stdout="", stderr="")
+
+    fake_client.run.side_effect = recording_run
+    mocker.patch("robobench.robots.turtlebot4.SSHClient", return_value=fake_client)
+    mocker.patch(
+        "robobench.robots.turtlebot4._now_utc",
+        return_value=datetime(2026, 5, 27, 12, 0, 11, tzinfo=UTC),
+    )
+
+    _adapter().setup_clock_sync(workstation_ip="192.168.50.10", sleep=lambda _s: None)
+
+    makestep_cmd = ["sudo", "chronyc", "-a", "makestep"]
+    date_cmd = ["date", "+%s"]
+    assert makestep_cmd in calls, f"chronyc makestep not found in calls: {calls}"
+    assert date_cmd in calls, f"date +%s not found in calls: {calls}"
+    makestep_idx = calls.index(makestep_cmd)
+    date_idx = calls.index(date_cmd)
+    assert makestep_idx < date_idx, (
+        f"makestep (index {makestep_idx}) must precede date +%s (index {date_idx})"
+    )
 
 
 def test_activate_lifecycle_falls_back_to_cli(monkeypatch):
