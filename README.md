@@ -64,6 +64,7 @@ robobench --help
 | `robobench odom-tf` | Republish odom → base_link TF |
 | `robobench shutdown` | Graceful stop of the navigation stack |
 | `robobench report` | Human-readable post-mortem of the latest recover/preflight session log |
+| `robobench watch` | Continuously supervise a robot — monitor-only, or `--auto-recover` to auto-remediate |
 
 Plus the `robobench-lifecycle-activator` ROS2 node entry point.
 

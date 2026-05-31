@@ -84,3 +84,24 @@ robobench report <path>   # a specific log
 It prints a timeline (each probe's failing layer, each action tried, the final
 outcome) and a one-line summary — handy for understanding *why* a recovery got
 `STUCK` or `TIMED_OUT`.
+
+## Continuous supervision (`robobench watch`)
+
+`robobench recover` is one-shot. To keep a robot healthy over time, run the
+supervisor:
+
+```bash
+robobench watch --robot turtlebot4 --config ./config.yaml             # monitor-only
+robobench watch --robot turtlebot4 --config ./config.yaml --auto-recover
+```
+
+By default `watch` only **observes** — it prints a heartbeat, records to
+`~/.robobench/logs/`, and alerts (naming the broken layer) without acting.
+`--auto-recover` lets it invoke the recovery engine on unhealthy state, with a
+cooldown between attempts (`--recover-cooldown`, default 60s) and an attempt cap
+(`--max-recover-attempts`, default 3) after which it stops acting and escalates
+("needs human"). The nuclear Create3 reboot is never used by `watch`.
+
+> **Validate on real hardware before trusting `--auto-recover` unattended.** It
+> will restart robot services automatically; run the recovery loop against a real
+> robot first. Out of the box, `watch` is monitor-only for exactly this reason.

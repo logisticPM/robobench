@@ -5,6 +5,26 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.14.0a0] — 2026-05-30
+
+### Added
+
+- **`robobench watch`** — a long-running deterministic supervisor. It probes the
+  robot on an interval (lite SSH probe) and, **monitor-only by default**, prints a
+  heartbeat + records to the flight recorder + alerts on unhealthy state. With
+  `--auto-recover` it invokes the recovery engine, gated by a cooldown
+  (`--recover-cooldown`) and an attempt cap (`--max-recover-attempts`) that
+  escalates to monitor-only ("needs human") on repeated failure or `NEEDS_HUMAN`;
+  a return to healthy resets the counter. The nuclear Create3 reboot is never
+  reachable from `watch`. New pure, fully-injectable
+  `robobench.recovery.supervisor.run_supervisor`.
+
+### Notes
+
+- `--auto-recover` auto-restarts robot services unattended based on logic that is
+  unit-tested but not yet hardware-validated. Validate the recovery loop on a real
+  robot before enabling it unattended; the monitor-only default reflects this.
+
 ## [0.13.0a0] — 2026-05-30
 
 ### Added
