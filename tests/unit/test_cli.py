@@ -585,3 +585,39 @@ def test_adapter_from_config_drops_discovery_port(tmp_path):
     adapter = _adapter_from_config(str(cfg))
     assert adapter.namespace == "tb"
     assert adapter.ip == "i"
+
+
+def test_main_clean_error_on_missing_config(capsys):
+    rc = main(["health", "--robot", "turtlebot4", "--config", "C:/no/such/robobench-config.yaml"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
+
+
+def test_recover_dry_run_unreachable_message(monkeypatch, tmp_path, capsys):
+    from robobench.recovery.state import RobotState  # noqa: PLC0415
+
+    class FakeProbe:
+        def __init__(self, **kwargs):
+            pass
+
+        def read(self):
+            return RobotState(False, False, False, 0, False, False)  # rpi unreachable
+
+    monkeypatch.setattr("robobench.cli.TurtleBot4Probe", FakeProbe)
+
+    rc = main(
+        [
+            "recover",
+            "--robot",
+            "turtlebot4",
+            "--config",
+            str(_dashboard_config(tmp_path)),
+            "--dry-run",
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "unreachable" in out
+    assert "healthy" not in out
