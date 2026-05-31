@@ -70,3 +70,17 @@ robobench's engine is a convergence loop, not a fixed sequence:
 | `STUCK` | Ran out of allowed fixes (e.g. needs `--allow-reboot`). |
 | `TIMED_OUT` | Hit `--deadline` still unhealthy. |
 | `NEEDS_HUMAN` | Robot unreachable — power/network, can't fix remotely. |
+
+## Reviewing afterward
+
+Every `robobench recover` / `robobench preflight` run writes a JSONL session log
+to `~/.robobench/logs/`. To see what happened without reading raw JSON:
+
+```bash
+robobench report          # the latest session
+robobench report <path>   # a specific log
+```
+
+It prints a timeline (each probe's failing layer, each action tried, the final
+outcome) and a one-line summary — handy for understanding *why* a recovery got
+`STUCK` or `TIMED_OUT`.

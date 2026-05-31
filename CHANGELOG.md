@@ -5,6 +5,18 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.13.0a0] — 2026-05-30
+
+### Added
+
+- **`robobench report`** — renders the flight-recorder `events_*.jsonl` session
+  logs (written by `recover`/`preflight`) into a human-readable post-mortem:
+  a timeline of each probe's failing layer, each recovery action, and the final
+  outcome, plus a one-line summary. Defaults to the latest log in
+  `~/.robobench/logs/`, or takes a path. New pure module `robobench.eventreport`
+  (`latest_event_log`/`parse_events`/`format_report`). Closes the
+  "we record diagnostics but never read them" gap.
+
 ## [0.12.1a0] — 2026-05-30
 
 ### Fixed
