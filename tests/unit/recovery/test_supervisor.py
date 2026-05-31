@@ -16,7 +16,7 @@ def test_monitor_only_never_recovers():
         interval=1, cooldown_s=0, max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: 0.0,
-        should_stop=lambda: calls["sleep"] >= 2,
+        should_stop=lambda: calls["sleep"] >= 2,  # noqa: PLR2004
         emit=lambda e, d: events.append((e, d)),
     )
     assert any(e == "unhealthy" for e, _ in events)
@@ -41,10 +41,10 @@ def test_auto_recover_attempts_and_resets_on_converged():
         interval=1, cooldown_s=0, max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: float(calls["sleep"]),  # advances each cycle -> no cooldown
-        should_stop=lambda: calls["sleep"] >= 3,
+        should_stop=lambda: calls["sleep"] >= 3,  # noqa: PLR2004
         emit=lambda e, d: None,
     )
-    assert calls["recover"] == 2  # cycle1 broken->recover, cycle2 healthy, cycle3 broken->recover
+    assert calls["recover"] == 2  # noqa: PLR2004 — cycle1 broken->recover, cycle2 healthy, cycle3 broken->recover
 
 
 def test_cooldown_skips_second_attempt():
@@ -63,7 +63,7 @@ def test_cooldown_skips_second_attempt():
         interval=1, cooldown_s=100, max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: 0.0,  # frozen -> 2nd cycle within cooldown
-        should_stop=lambda: calls["sleep"] >= 2,
+        should_stop=lambda: calls["sleep"] >= 2,  # noqa: PLR2004
         emit=lambda e, d: events.append((e, d)),
     )
     assert calls["recover"] == 1
@@ -86,10 +86,10 @@ def test_max_attempts_escalates():
         interval=1, cooldown_s=0, max_attempts=2,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: float(calls["sleep"]),
-        should_stop=lambda: calls["sleep"] >= 5,
+        should_stop=lambda: calls["sleep"] >= 5,  # noqa: PLR2004
         emit=lambda e, d: events.append((e, d)),
     )
-    assert calls["recover"] == 2  # 2 attempts then escalate; no more
+    assert calls["recover"] == 2  # noqa: PLR2004 — 2 attempts then escalate; no more
     assert any(e == "escalate" and d.get("reason") == "max_attempts" for e, d in events)
 
 
@@ -109,7 +109,7 @@ def test_needs_human_escalates_immediately():
         interval=1, cooldown_s=0, max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: float(calls["sleep"]),
-        should_stop=lambda: calls["sleep"] >= 3,
+        should_stop=lambda: calls["sleep"] >= 3,  # noqa: PLR2004
         emit=lambda e, d: events.append((e, d)),
     )
     assert calls["recover"] == 1  # one attempt -> NEEDS_HUMAN -> escalated
@@ -131,10 +131,10 @@ def test_recover_exception_counts_and_continues():
         interval=1, cooldown_s=0, max_attempts=2,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: float(calls["sleep"]),
-        should_stop=lambda: calls["sleep"] >= 3,
+        should_stop=lambda: calls["sleep"] >= 3,  # noqa: PLR2004
         emit=lambda e, d: events.append((e, d)),
     )
-    assert calls["recover"] == 2  # each raise counts as an attempt, then escalate
+    assert calls["recover"] == 2  # noqa: PLR2004 — each raise counts as an attempt, then escalate
     assert any(e == "recover_error" for e, _ in events)
     assert any(e == "escalate" for e, _ in events)
 
@@ -155,7 +155,7 @@ def test_probe_exception_continues():
         interval=1, cooldown_s=0, max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: 0.0,
-        should_stop=lambda: calls["sleep"] >= 2,
+        should_stop=lambda: calls["sleep"] >= 2,  # noqa: PLR2004
         emit=lambda e, d: events.append((e, d)),
     )
     assert any(e == "probe_error" for e, _ in events)

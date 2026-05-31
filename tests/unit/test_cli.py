@@ -670,6 +670,33 @@ def test_report_no_logs_default_exit_1(tmp_path, monkeypatch, capsys):
     assert "no session logs" in capsys.readouterr().err
 
 
+def test_watch_monitor_only_by_default(monkeypatch, tmp_path):
+    cfg = _dashboard_config(tmp_path)
+    captured = {}
+    monkeypatch.setattr(
+        "robobench.recovery.supervisor.run_supervisor",
+        lambda probe, recover, **kw: captured.update(recover=recover, kw=kw),
+    )
+    rc = main(["watch", "--robot", "turtlebot4", "--config", str(cfg)])
+    assert rc == 0
+    assert captured["recover"] is None  # monitor-only default
+    assert captured["kw"]["interval"] == 20.0  # noqa: PLR2004
+    assert captured["kw"]["cooldown_s"] == 60.0  # noqa: PLR2004
+    assert captured["kw"]["max_attempts"] == 3  # noqa: PLR2004
+
+
+def test_watch_auto_recover_builds_recover(monkeypatch, tmp_path):
+    cfg = _dashboard_config(tmp_path)
+    captured = {}
+    monkeypatch.setattr(
+        "robobench.recovery.supervisor.run_supervisor",
+        lambda probe, recover, **kw: captured.update(recover=recover),
+    )
+    rc = main(["watch", "--robot", "turtlebot4", "--config", str(cfg), "--auto-recover"])
+    assert rc == 0
+    assert captured["recover"] is not None  # auto-recover -> a recover callable
+
+
 def test_recover_dry_run_unreachable_message(monkeypatch, tmp_path, capsys):
     from robobench.recovery.state import RobotState  # noqa: PLC0415
 

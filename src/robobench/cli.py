@@ -59,6 +59,13 @@ def _positive_float(value: str) -> float:
     return parsed
 
 
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return parsed
+
+
 def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     parser = argparse.ArgumentParser(prog="robobench")
     parser.add_argument("--version", action="version", version=f"robobench {__version__}")
@@ -191,6 +198,29 @@ def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
         help="Session log to read (default: latest events_*.jsonl in ~/.robobench/logs).",
     )
     report.set_defaults(func=_cmd_report)
+
+    watch = subparsers.add_parser(
+        "watch",
+        help="Continuously supervise a robot (monitor-only; --auto-recover to act).",
+    )
+    watch.add_argument("--robot", required=True, choices=["turtlebot4"])
+    watch.add_argument("--config", required=True)
+    watch.add_argument(
+        "--auto-recover",
+        action="store_true",
+        help="Let the supervisor invoke recovery on unhealthy state (off by default).",
+    )
+    watch.add_argument("--interval", type=_positive_float, default=20.0,
+                       help="Seconds between probes (default 20).")
+    watch.add_argument("--recover-cooldown", type=_positive_float, default=60.0,
+                       help="Min seconds between recovery attempts (default 60).")
+    watch.add_argument(
+        "--max-recover-attempts",
+        type=_positive_int,
+        default=3,
+        help="Consecutive failed recoveries before escalating to monitor-only (default 3).",
+    )
+    watch.set_defaults(func=_cmd_watch)
 
     return parser
 
@@ -566,6 +596,67 @@ def _cmd_report(args: argparse.Namespace) -> int:
         return 2
     print(f"log: {target}")
     print(format_report(records))
+    return 0
+
+
+def _cmd_watch(args: argparse.Namespace) -> int:
+    if args.robot != "turtlebot4":
+        print(f"unsupported robot: {args.robot}", file=sys.stderr)
+        return 2
+    import time as _time  # noqa: PLC0415
+
+    from robobench.recovery.supervisor import run_supervisor  # noqa: PLC0415
+
+    kwargs = load_adapter_config(Path(args.config))
+    probe_obj = TurtleBot4Probe(
+        ip=kwargs["ip"],
+        ssh_user=kwargs["ssh_user"],
+        ssh_pass=kwargs["ssh_pass"],
+        namespace=kwargs["namespace"],
+    )
+    event_log = EventLogger()
+
+    recover = None
+    if args.auto_recover:
+
+        def recover():
+            return build_turtlebot4_recovery(
+                ip=kwargs["ip"],
+                ssh_user=kwargs["ssh_user"],
+                ssh_pass=kwargs["ssh_pass"],
+                namespace=kwargs["namespace"],
+                allow_reboot=False,
+                deadline_s=180.0,
+                event_log=event_log,
+            ).run()
+
+    def emit(event: str, data: dict) -> None:
+        event_log.log(f"watch_{event}", data)
+        detail = data.get("aspect") or data.get("reason") or data.get("outcome") or ""
+        suffix = f" ({detail})" if detail else ""
+        print(f"[watch] {event}{suffix}")
+
+    mode = "auto-recover" if args.auto_recover else "monitor-only"
+    print(
+        f"[watch] supervising {kwargs['namespace']} "
+        f"({mode}, every {args.interval:.0f}s) - Ctrl+C to stop"
+    )
+    print(f"[watch] event log: {event_log.path}")
+    try:
+        run_supervisor(
+            probe_obj.read_connectivity,
+            recover,
+            interval=args.interval,
+            cooldown_s=args.recover_cooldown,
+            max_attempts=args.max_recover_attempts,
+            sleep=_time.sleep,
+            now=_time.monotonic,
+            emit=emit,
+        )
+    except KeyboardInterrupt:
+        print("\n[watch] stopped")
+    finally:
+        event_log.close()
     return 0
 
 
