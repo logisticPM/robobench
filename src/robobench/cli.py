@@ -423,14 +423,27 @@ def _cmd_recover(args: argparse.Namespace) -> int:
         )
         state = probe.read()
         aspect = state.failing_aspect()
+        if aspect is None:
+            print("[dry-run] robot is healthy; nothing to recover")
+            return 0
+        if aspect == "rpi_reachable":
+            print(
+                "[dry-run] robot unreachable (ping failed) — check power/network; "
+                "recovery cannot fix this remotely"
+            )
+            return 0
         would_do = [
             a for asp, a, nuke in _LADDER if asp == aspect and (args.allow_reboot or not nuke)
         ]
         print(f"[dry-run] failing aspect: {aspect}")
-        for a in would_do:
-            print(f"[dry-run] would try: {a}")
-        if not would_do:
-            print("[dry-run] healthy or nothing to try")
+        if would_do:
+            for a in would_do:
+                print(f"[dry-run] would try: {a}")
+        else:
+            print(
+                "[dry-run] no non-nuclear action available "
+                "(pass --allow-reboot to permit the Create3 reboot)"
+            )
         return 0
 
     event_log = EventLogger()
