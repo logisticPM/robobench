@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from robobench.config import load_adapter_config, load_known_poses, resolve_pose
+from robobench.config import load_adapter_config, load_known_poses, render_config_template, resolve_pose
 
 DEFAULT_DISCOVERY_PORT = 11811
 CUSTOM_DISCOVERY_PORT = 11888
@@ -161,3 +161,35 @@ def test_resolve_pose_raw_coords():
 def test_resolve_pose_unknown_raises():
     with pytest.raises(ValueError, match="unknown pose"):
         resolve_pose("garage", {"front_door": {"x": 0, "y": 0, "theta": 0}})
+
+
+def test_render_defaults_have_placeholders():
+    text = render_config_template()
+    assert "192.168.x.x" in text
+    assert "turtlebot468" in text
+    assert "rmw_implementation" not in text  # dead field intentionally omitted
+
+
+def test_render_fills_provided_flags():
+    text = render_config_template(ip="10.0.0.5", ssh_user="pi", ssh_pass="pw", namespace="bot")
+    assert '"10.0.0.5"' in text
+    assert '"pi"' in text
+    assert '"pw"' in text
+    assert '"bot"' in text
+
+
+def test_render_is_valid_yaml_and_roundtrips(tmp_path):
+    import yaml
+
+    text = render_config_template(ip="10.0.0.5", namespace="bot")
+    assert yaml.safe_load(text) is not None  # parses as YAML
+
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(text, encoding="utf-8")
+    loaded = load_adapter_config(cfg)
+    assert loaded["ip"] == "10.0.0.5"
+    assert loaded["namespace"] == "bot"
+    assert loaded["discovery_port"] == 11811
+    # optional sections are commented out -> loader falls back to defaults
+    assert loaded["workspace_dir"] is None
+    assert loaded["build_packages"] == ["campus_nav_llm"]
