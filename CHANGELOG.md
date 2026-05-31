@@ -5,6 +5,13 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- README rewritten to reflect the current feature set (was stuck at "What v0.2
+  ships"): all nine CLI subcommands, the diagnostics dashboard + connectivity
+  panel + one-click recover, the DDS relay / odom-TF workarounds, and a status
+  note that nothing is hardware-validated yet.
+
 ## [0.11.0a0] — 2026-05-30
 
 ### Added
