@@ -31,8 +31,10 @@ class RecoveryJob:
         with self._lock:
             self._steps.append({"event": event, "data": data})
 
-    def begin(self) -> None:
+    def begin(self) -> bool:
         with self._lock:
+            if self._status == "running":
+                return False
             self._status = "running"
             self._outcome = None
             self._actions = []
@@ -40,6 +42,7 @@ class RecoveryJob:
             self._error = None
             self._started_at = time.time()
             self._finished_at = None
+            return True
 
     def finish(self, outcome: str, actions: list[str], error: str | None = None) -> None:
         with self._lock:

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
@@ -32,7 +33,7 @@ _STATIC_DIR = Path(__file__).parent / "static"
 
 
 class RecoverRequest(BaseModel):
-    mode: str
+    mode: Literal["preview", "apply"]
 
 
 def create_app(
@@ -104,8 +105,8 @@ def create_app(
     def connectivity_panel() -> dict:
         return diagnose_connectivity(app.state.diag.connectivity())
 
-    @app.post("/api/recover")
-    def recover(req: RecoverRequest):
+    @app.post("/api/recover", response_model=None)
+    def recover(req: RecoverRequest) -> dict | JSONResponse:
         rec = app.state.recovery
         if rec is None:
             raise HTTPException(
@@ -113,11 +114,9 @@ def create_app(
             )
         if req.mode == "preview":
             return rec.preview(app.state.diag.connectivity())
-        if req.mode == "apply":
-            if not rec.start_apply():
-                raise HTTPException(status_code=409, detail="a recovery is already running")
-            return JSONResponse(status_code=202, content=rec.job.snapshot())
-        raise HTTPException(status_code=400, detail="mode must be 'preview' or 'apply'")
+        if not rec.start_apply():
+            raise HTTPException(status_code=409, detail="a recovery is already running")
+        return JSONResponse(status_code=202, content=rec.job.snapshot())
 
     @app.get("/api/recover/status")
     def recover_status() -> dict:

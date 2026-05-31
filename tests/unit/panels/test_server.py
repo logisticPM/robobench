@@ -17,7 +17,7 @@ HTTP_OK = 200
 HTTP_ACCEPTED = 202
 HTTP_FORBIDDEN = 403
 HTTP_CONFLICT = 409
-HTTP_BAD_REQUEST = 400
+HTTP_UNPROCESSABLE = 422
 
 
 def _client(state: DiagnosticState, expected_nodes=None) -> TestClient:
@@ -145,7 +145,15 @@ def test_connectivity_panel_unknown_then_fail():
 def _fake_controller():
     class FakeJob:
         def snapshot(self):
-            return {"status": "idle", "outcome": None, "actions": [], "steps": [], "error": None}
+            return {
+                "status": "idle",
+                "outcome": None,
+                "actions": [],
+                "steps": [],
+                "error": None,
+                "started_at": None,
+                "finished_at": None,
+            }
 
     class FakeController:
         def __init__(self):
@@ -180,7 +188,7 @@ def test_recover_preview_apply_and_conflict():
     ctrl.allow_start = False
     assert client.post("/api/recover", json={"mode": "apply"}).status_code == HTTP_CONFLICT
 
-    assert client.post("/api/recover", json={"mode": "nope"}).status_code == HTTP_BAD_REQUEST
+    assert client.post("/api/recover", json={"mode": "nope"}).status_code == HTTP_UNPROCESSABLE
 
     body = client.get("/api/recover/status").json()
     assert body["available"] is True

@@ -43,9 +43,8 @@ class RecoveryController:
     def start_apply(self) -> bool:
         """Start a recovery in a daemon thread. Single-flight: returns False if
         one is already running."""
-        if self.job.status == "running":
+        if not self.job.begin():
             return False
-        self.job.begin()
         self._thread_factory(target=self._run, daemon=True).start()
         return True
 

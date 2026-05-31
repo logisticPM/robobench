@@ -83,6 +83,20 @@ def test_start_apply_single_flight():
     assert ctrl.start_apply() is False  # blocked
 
 
+def test_start_apply_restarts_after_done():
+    class FakeEngine:
+        def __init__(self, job):
+            pass
+
+        def run(self):
+            return RecoveryResult(outcome="CONVERGED", actions_taken=[])
+
+    ctrl = RecoveryController(build_engine=FakeEngine, thread_factory=_SyncThread)
+    assert ctrl.start_apply() is True   # runs synchronously -> done
+    assert ctrl.job.status == "done"
+    assert ctrl.start_apply() is True   # accepted again after done
+
+
 def test_start_apply_engine_exception_sets_error():
     class BoomEngine:
         def __init__(self, job):

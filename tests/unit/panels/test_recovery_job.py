@@ -48,3 +48,9 @@ def test_status_property():
     assert job.status == "idle"
     job.begin()
     assert job.status == "running"
+
+
+def test_begin_returns_false_when_already_running():
+    job = RecoveryJob()
+    assert job.begin() is True
+    assert job.begin() is False
