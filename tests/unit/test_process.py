@@ -47,3 +47,11 @@ def test_run_local_timeout_raises(mocker):
     )
     with pytest.raises(RuntimeError, match="timed out"):
         run_local(["sleep", "10"], timeout=1.0)
+
+
+def test_run_local_missing_binary_returns_127():
+    from robobench._process import run_local
+
+    result = run_local(["robobench-nonexistent-binary-xyz"], timeout=5)
+    assert result.returncode == 127
+    assert "command not found" in result.stderr
