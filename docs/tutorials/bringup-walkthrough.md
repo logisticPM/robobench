@@ -63,7 +63,7 @@ field with the failure mode. Common patterns:
   `robobench bringup` with a correct `--initial-pose`.
 - `navigate_to_pose_action: FAIL` — Nav2 lifecycle didn't fully activate.
   Re-run `robobench-lifecycle-activator` and read its log under
-  `~/.campus_nav_logs/`.
+  `~/.robobench/logs/`.
 
 ## Customizing for your own workspace
 

@@ -42,7 +42,7 @@ from datetime import datetime
 from pathlib import Path
 
 # ── Structured log dir ───────────────────────────────────────────────────
-_LOG_DIR = Path.home() / ".campus_nav_logs"
+_LOG_DIR = Path.home() / ".robobench" / "logs"
 
 
 def _lazy_imports() -> None:

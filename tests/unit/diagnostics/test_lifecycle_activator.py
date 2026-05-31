@@ -18,6 +18,15 @@ def test_module_is_importable_without_ros2():
     import robobench.diagnostics.lifecycle_activator  # noqa: F401, PLC0415
 
 
+def test_log_dir_is_under_robobench_logs():
+    """_LOG_DIR must point to ~/.robobench/logs, not the upstream ~/.campus_nav_logs."""
+    from robobench.diagnostics.lifecycle_activator import _LOG_DIR  # noqa: PLC0415
+
+    assert _LOG_DIR.parts[-2:] == (".robobench", "logs"), (
+        f"Expected _LOG_DIR to end with (.robobench, logs), got {_LOG_DIR.parts[-2:]}"
+    )
+
+
 def test_lazy_imports_raises_clear_runtime_error_when_rclpy_missing():
     """When rclpy can't be imported, _lazy_imports() raises a RuntimeError
     that mentions ROS2 — not a cryptic ImportError."""
