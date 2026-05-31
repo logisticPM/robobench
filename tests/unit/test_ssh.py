@@ -115,6 +115,5 @@ def test_sshclient_connect_timeout_raises_runtime_error(mocker):
     fake_client.connect.side_effect = TimeoutError("timed out")
     mocker.patch("robobench.ssh.paramiko.SSHClient", return_value=fake_client)
 
-    with pytest.raises(RuntimeError):
-        with SSHClient("192.168.50.99", "ubuntu", "turtlebot4"):
-            pass
+    with pytest.raises(RuntimeError), SSHClient("192.168.50.99", "ubuntu", "turtlebot4"):
+        pass

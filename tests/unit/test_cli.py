@@ -574,7 +574,7 @@ def test_dashboard_demo_has_no_recovery(monkeypatch, tmp_path):
 
 
 def test_adapter_from_config_drops_discovery_port(tmp_path):
-    from robobench.cli import _adapter_from_config
+    from robobench.cli import _adapter_from_config  # noqa: PLC0415
 
     cfg = tmp_path / "c.yaml"
     cfg.write_text(

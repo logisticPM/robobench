@@ -38,7 +38,9 @@ def run_local(
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"Local command timed out after {timeout}s: {' '.join(cmd)}") from exc
     except FileNotFoundError as exc:
-        return ProcessResult(returncode=127, stdout="", stderr=f"command not found: {cmd[0]} ({exc})")
+        return ProcessResult(
+            returncode=127, stdout="", stderr=f"command not found: {cmd[0]} ({exc})"
+        )
     return ProcessResult(
         returncode=completed.returncode,
         stdout=completed.stdout,

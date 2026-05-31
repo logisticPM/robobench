@@ -5,6 +5,23 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.11.1a0] — 2026-05-30
+
+### Fixed
+
+- `bringup`, `health`, and `shutdown` no longer crash with `TypeError` when
+  `config.yaml` contains `dds.discovery_port`. A new `_adapter_from_config()`
+  helper drops that config-only key before forwarding kwargs to
+  `TurtleBot4Adapter`.
+- `robobench check` (and any SSH-using command) now shows a clean error message
+  instead of a raw paramiko traceback when the robot is unreachable: `SSHClient`
+  now catches `OSError` subclasses (`TimeoutError`, `ConnectionRefusedError`,
+  etc.) alongside `paramiko.SSHException` and wraps them into `RuntimeError`.
+- `run_local` no longer raises an uncaught `FileNotFoundError` when the
+  requested binary is missing (e.g. `ros2` not sourced). It now returns a
+  `ProcessResult` with `returncode=127` and a `command not found` message in
+  `stderr`, matching POSIX shell convention.
+
 ### Changed
 
 - README rewritten to reflect the current feature set (was stuck at "What v0.2
