@@ -5,8 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
-from robobench.config import load_adapter_config, load_known_poses, render_config_template, resolve_pose
+from robobench.config import (
+    load_adapter_config,
+    load_known_poses,
+    render_config_template,
+    resolve_pose,
+)
 
 DEFAULT_DISCOVERY_PORT = 11811
 CUSTOM_DISCOVERY_PORT = 11888
@@ -179,8 +185,6 @@ def test_render_fills_provided_flags():
 
 
 def test_render_is_valid_yaml_and_roundtrips(tmp_path):
-    import yaml
-
     text = render_config_template(ip="10.0.0.5", namespace="bot")
     assert yaml.safe_load(text) is not None  # parses as YAML
 
@@ -189,7 +193,7 @@ def test_render_is_valid_yaml_and_roundtrips(tmp_path):
     loaded = load_adapter_config(cfg)
     assert loaded["ip"] == "10.0.0.5"
     assert loaded["namespace"] == "bot"
-    assert loaded["discovery_port"] == 11811
+    assert loaded["discovery_port"] == DEFAULT_DISCOVERY_PORT
     # optional sections are commented out -> loader falls back to defaults
     assert loaded["workspace_dir"] is None
     assert loaded["build_packages"] == ["campus_nav_llm"]

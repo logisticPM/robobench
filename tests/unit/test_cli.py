@@ -595,6 +595,39 @@ def test_main_clean_error_on_missing_config(capsys):
     assert "Traceback" not in err
 
 
+def test_init_writes_config(tmp_path):
+    out = tmp_path / "config.yaml"
+    rc = main(["init", "--output", str(out)])
+    assert rc == 0
+    assert out.exists()
+    assert "192.168.x.x" in out.read_text(encoding="utf-8")
+
+
+def test_init_fills_flags(tmp_path):
+    out = tmp_path / "config.yaml"
+    rc = main(["init", "--output", str(out), "--ip", "10.0.0.5", "--namespace", "bot"])
+    assert rc == 0
+    text = out.read_text(encoding="utf-8")
+    assert '"10.0.0.5"' in text
+    assert '"bot"' in text
+
+
+def test_init_refuses_existing_without_force(tmp_path):
+    out = tmp_path / "config.yaml"
+    out.write_text("original", encoding="utf-8")
+    rc = main(["init", "--output", str(out)])
+    assert rc == _ARGPARSE_USAGE_ERROR
+    assert out.read_text(encoding="utf-8") == "original"  # left untouched
+
+
+def test_init_force_overwrites(tmp_path):
+    out = tmp_path / "config.yaml"
+    out.write_text("original", encoding="utf-8")
+    rc = main(["init", "--output", str(out), "--force"])
+    assert rc == 0
+    assert "robot:" in out.read_text(encoding="utf-8")
+
+
 def test_recover_dry_run_unreachable_message(monkeypatch, tmp_path, capsys):
     from robobench.recovery.state import RobotState  # noqa: PLC0415
 

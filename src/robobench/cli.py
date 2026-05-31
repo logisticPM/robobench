@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from robobench import __version__
-from robobench.config import load_adapter_config
+from robobench.config import load_adapter_config, render_config_template
 from robobench.eventlog import EventLogger
 from robobench.recovery.engine import _LADDER
 from robobench.robots.turtlebot4 import TurtleBot4Adapter
@@ -168,6 +168,17 @@ def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     odom_tf.add_argument("--robot", required=True, choices=["turtlebot4"])
     odom_tf.add_argument("--config", required=True)
     odom_tf.set_defaults(func=_cmd_odom_tf)
+
+    init = subparsers.add_parser("init", help="Scaffold a starter config.yaml.")
+    init.add_argument("--ip", help="Robot IP (default: a placeholder you edit).")
+    init.add_argument("--ssh-user")
+    init.add_argument("--ssh-pass")
+    init.add_argument("--namespace")
+    init.add_argument(
+        "--output", default="config.yaml", help="Output path (default: ./config.yaml)."
+    )
+    init.add_argument("--force", action="store_true", help="Overwrite an existing file.")
+    init.set_defaults(func=_cmd_init)
 
     return parser
 
@@ -501,6 +512,28 @@ def _cmd_odom_tf(args: argparse.Namespace) -> int:
     except RuntimeError as exc:
         print(f"[odom-tf] not started: {exc}", file=sys.stderr)
         return 2
+    return 0
+
+
+def _cmd_init(args: argparse.Namespace) -> int:
+    target = Path(args.output)
+    if target.exists() and not args.force:
+        print(f"error: {target} already exists (use --force to overwrite)", file=sys.stderr)
+        return 2
+    target.write_text(
+        render_config_template(
+            ip=args.ip,
+            ssh_user=args.ssh_user,
+            ssh_pass=args.ssh_pass,
+            namespace=args.namespace,
+        ),
+        encoding="utf-8",
+    )
+    print(f"wrote {target}")
+    print(
+        f"next: edit it, then `robobench check --robot turtlebot4 ...` "
+        f"or `robobench dashboard --robot turtlebot4 --config {target}`"
+    )
     return 0
 
 
