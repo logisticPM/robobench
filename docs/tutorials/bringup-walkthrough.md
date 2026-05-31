@@ -10,8 +10,8 @@ Now we bring the whole Nav2 stack up and verify it's healthy.
   `rclpy`, `lifecycle_msgs`, `geometry_msgs`, and `nav2_*` packages.
 - The `campus_guide` example workspace built locally (or your own ROS2 workspace
   containing the `campus_nav_llm` package).
-- A `config.yaml` matching the upstream schema — copy from
-  `examples/campus_guide/code/config.yaml`.
+- A `config.yaml` — run `robobench init` to scaffold one (then edit the `robot:`
+  block), or copy `examples/campus_guide/code/config.yaml`.
 - A map YAML (e.g. `examples/campus_guide/code/campus_guide_bot/.../my_map.yaml`).
 
 ## Run it

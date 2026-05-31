@@ -5,6 +5,18 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.12.0a0] — 2026-05-30
+
+### Added
+
+- **`robobench init`** — scaffolds a commented starter `config.yaml` (active
+  `robot`/`dds` blocks, optional `workspace`/`build`/`launch`/`health`/`known_poses`
+  sections shown commented as inline docs). `--ip`/`--ssh-user`/`--ssh-pass`/
+  `--namespace` pre-fill the robot block; `--output` (default `./config.yaml`) and
+  `--force` control the target. `robobench.config.render_config_template` is the
+  pure renderer. Gives new users a quick on-ramp instead of copying the
+  campus-specific example out of `examples/`.
+
 ## [0.11.2a0] — 2026-05-30
 
 ### Fixed

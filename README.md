@@ -68,6 +68,9 @@ Plus the `robobench-lifecycle-activator` ROS2 node entry point.
 
 ## Quick start
 
+- **First time?** `robobench init` writes a starter `config.yaml` (edit the
+  `robot:` block, or pass `--ip/--ssh-user/--ssh-pass/--namespace`). Then run any
+  command with `--config config.yaml`.
 - [10-minute clock check](docs/tutorials/connect-turtlebot4.md)
 - [Full bring-up walkthrough](docs/tutorials/bringup-walkthrough.md)
 - [Diagnosing with the dashboard](docs/tutorials/diagnosing-with-dashboard.md)
