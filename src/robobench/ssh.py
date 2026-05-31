@@ -55,7 +55,7 @@ class SSHClient:
                 allow_agent=False,
                 look_for_keys=False,
             )
-        except paramiko.SSHException as exc:
+        except (paramiko.SSHException, OSError) as exc:
             raise RuntimeError(f"SSH connect to {self.host}:{self.port} failed: {exc}") from exc
         self._client = client
         return self

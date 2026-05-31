@@ -107,3 +107,14 @@ def test_check_workstation_chrony_skips_when_no_chrony(tmp_path: pathlib.Path):
     report = check_workstation_chrony_config(conf_path=tmp_path / "absent.conf")
     assert report["status"] == "SKIPPED"
     assert "chrony.conf" in report["reason"]
+
+
+def test_sshclient_connect_timeout_raises_runtime_error(mocker):
+    """A TimeoutError (unreachable host) during connect is wrapped into RuntimeError."""
+    fake_client = MagicMock()
+    fake_client.connect.side_effect = TimeoutError("timed out")
+    mocker.patch("robobench.ssh.paramiko.SSHClient", return_value=fake_client)
+
+    with pytest.raises(RuntimeError):
+        with SSHClient("192.168.50.99", "ubuntu", "turtlebot4"):
+            pass
