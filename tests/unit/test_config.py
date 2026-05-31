@@ -197,3 +197,17 @@ def test_render_is_valid_yaml_and_roundtrips(tmp_path):
     # optional sections are commented out -> loader falls back to defaults
     assert loaded["workspace_dir"] is None
     assert loaded["build_packages"] == ["campus_nav_llm"]
+    assert loaded["ssh_user"] == "ubuntu"   # placeholder default
+    assert loaded["ssh_pass"] == "turtlebot4"  # placeholder default
+
+
+def test_render_escapes_special_chars_safely(tmp_path):
+    text = render_config_template(namespace='bot"x\nevil: y')
+    parsed = yaml.safe_load(text)  # must not raise
+    assert parsed["robot"]["namespace"] == 'bot"x\nevil: y'  # value preserved
+    assert "evil" not in parsed  # NOT injected as a top-level key
+
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(text, encoding="utf-8")
+    loaded = load_adapter_config(cfg)
+    assert loaded["namespace"] == 'bot"x\nevil: y'
