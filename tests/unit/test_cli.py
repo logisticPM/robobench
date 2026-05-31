@@ -16,6 +16,7 @@ _DEFAULT_SSH_PROBE_INTERVAL = 20.0
 
 # argparse exit code when subcommand is required but not provided
 _ARGPARSE_USAGE_ERROR = 2
+_OVERWRITE_REFUSED = 2  # _cmd_init returns 2 when the output exists and --force is absent
 
 
 def test_version_flag_prints_version(capsys):
@@ -616,7 +617,7 @@ def test_init_refuses_existing_without_force(tmp_path):
     out = tmp_path / "config.yaml"
     out.write_text("original", encoding="utf-8")
     rc = main(["init", "--output", str(out)])
-    assert rc == _ARGPARSE_USAGE_ERROR
+    assert rc == _OVERWRITE_REFUSED
     assert out.read_text(encoding="utf-8") == "original"  # left untouched
 
 
