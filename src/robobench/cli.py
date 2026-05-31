@@ -43,6 +43,14 @@ _CLOCK_OK_THRESHOLD = 2.0
 _CLOCK_WARN_THRESHOLD = 10.0
 
 
+def _adapter_from_config(config_path: str) -> TurtleBot4Adapter:
+    """Build a TurtleBot4Adapter from config.yaml, dropping config-only keys
+    (e.g. dds.discovery_port, which the dashboard reads but the adapter doesn't take)."""
+    kwargs = load_adapter_config(Path(config_path))
+    kwargs.pop("discovery_port", None)
+    return TurtleBot4Adapter(**kwargs)
+
+
 def _positive_float(value: str) -> float:
     parsed = float(value)
     if parsed <= 0:
@@ -198,8 +206,7 @@ def _cmd_bringup(args: argparse.Namespace) -> int:
     if args.robot != "turtlebot4":
         print(f"unsupported robot: {args.robot}", file=sys.stderr)
         return 2
-    kwargs = load_adapter_config(Path(args.config))
-    adapter = TurtleBot4Adapter(**kwargs)
+    adapter = _adapter_from_config(args.config)
 
     from robobench.config import load_known_poses, resolve_pose  # noqa: PLC0415
 
@@ -233,7 +240,7 @@ def _cmd_health(args: argparse.Namespace) -> int:
     if args.robot != "turtlebot4":
         print(f"unsupported robot: {args.robot}", file=sys.stderr)
         return 2
-    adapter = TurtleBot4Adapter(**load_adapter_config(Path(args.config)))
+    adapter = _adapter_from_config(args.config)
     report = adapter.health_check()
     print(json.dumps(report, indent=2))
     return 0 if report["overall"] != "UNHEALTHY" else 1
@@ -243,7 +250,7 @@ def _cmd_shutdown(args: argparse.Namespace) -> int:
     if args.robot != "turtlebot4":
         print(f"unsupported robot: {args.robot}", file=sys.stderr)
         return 2
-    adapter = TurtleBot4Adapter(**load_adapter_config(Path(args.config)))
+    adapter = _adapter_from_config(args.config)
     adapter.shutdown()
     print("shutdown complete")
     return 0

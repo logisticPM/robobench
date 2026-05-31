@@ -571,3 +571,17 @@ def test_dashboard_demo_has_no_recovery(monkeypatch, tmp_path):
     )
     assert rc == 0
     assert captured["recovery"] is None
+
+
+def test_adapter_from_config_drops_discovery_port(tmp_path):
+    from robobench.cli import _adapter_from_config
+
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(
+        "robot:\n  ip: i\n  ssh_user: u\n  ssh_pass: p\n  namespace: tb\n"
+        "dds:\n  discovery_port: 11811\n",
+        encoding="utf-8",
+    )
+    adapter = _adapter_from_config(str(cfg))
+    assert adapter.namespace == "tb"
+    assert adapter.ip == "i"
