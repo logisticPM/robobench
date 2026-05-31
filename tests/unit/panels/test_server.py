@@ -14,6 +14,10 @@ from robobench.recovery.state import RobotState
 SMALL_OFFSET = 0.3
 TARGET_SCAN_RATE = 8.0
 HTTP_OK = 200
+HTTP_ACCEPTED = 202
+HTTP_FORBIDDEN = 403
+HTTP_CONFLICT = 409
+HTTP_BAD_REQUEST = 400
 
 
 def _client(state: DiagnosticState, expected_nodes=None) -> TestClient:
@@ -162,24 +166,21 @@ def _fake_controller():
 
 
 def test_recover_preview_apply_and_conflict():
-    from fastapi.testclient import TestClient
-
-    from robobench.panels.server import create_app
-    from robobench.panels.state import DiagnosticState
-
     ctrl = _fake_controller()
-    client = TestClient(create_app(DiagnosticState(), namespace="tb", expected_nodes=[], recovery=ctrl))
+    client = TestClient(
+        create_app(DiagnosticState(), namespace="tb", expected_nodes=[], recovery=ctrl)
+    )
 
     r = client.post("/api/recover", json={"mode": "preview"})
-    assert r.status_code == 200
+    assert r.status_code == HTTP_OK
     assert r.json()["would_try"] == ["restart_discovery_server"]
 
-    assert client.post("/api/recover", json={"mode": "apply"}).status_code == 202
+    assert client.post("/api/recover", json={"mode": "apply"}).status_code == HTTP_ACCEPTED
 
     ctrl.allow_start = False
-    assert client.post("/api/recover", json={"mode": "apply"}).status_code == 409
+    assert client.post("/api/recover", json={"mode": "apply"}).status_code == HTTP_CONFLICT
 
-    assert client.post("/api/recover", json={"mode": "nope"}).status_code == 400
+    assert client.post("/api/recover", json={"mode": "nope"}).status_code == HTTP_BAD_REQUEST
 
     body = client.get("/api/recover/status").json()
     assert body["available"] is True
@@ -187,11 +188,6 @@ def test_recover_preview_apply_and_conflict():
 
 
 def test_recover_unavailable_without_controller():
-    from fastapi.testclient import TestClient
-
-    from robobench.panels.server import create_app
-    from robobench.panels.state import DiagnosticState
-
     client = TestClient(create_app(DiagnosticState(), namespace="tb", expected_nodes=[]))
-    assert client.post("/api/recover", json={"mode": "apply"}).status_code == 403
+    assert client.post("/api/recover", json={"mode": "apply"}).status_code == HTTP_FORBIDDEN
     assert client.get("/api/recover/status").json() == {"available": False, "status": "idle"}

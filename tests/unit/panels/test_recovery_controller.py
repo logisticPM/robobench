@@ -66,13 +66,15 @@ def test_start_apply_runs_engine_and_finishes_done():
             self._job.log("action", {"aspect": "clock_synced", "name": "sync_clock"})
             return RecoveryResult(outcome="CONVERGED", actions_taken=["sync_clock"])
 
-    ctrl = RecoveryController(build_engine=lambda job: FakeEngine(job), thread_factory=_SyncThread)
+    ctrl = RecoveryController(build_engine=FakeEngine, thread_factory=_SyncThread)
     assert ctrl.start_apply() is True
     snap = ctrl.job.snapshot()
     assert snap["status"] == "done"
     assert snap["outcome"] == "CONVERGED"
     assert snap["actions"] == ["sync_clock"]
-    assert {"event": "action", "data": {"aspect": "clock_synced", "name": "sync_clock"}} in snap["steps"]
+    assert {"event": "action", "data": {"aspect": "clock_synced", "name": "sync_clock"}} in snap[
+        "steps"
+    ]
 
 
 def test_start_apply_single_flight():
@@ -89,7 +91,7 @@ def test_start_apply_engine_exception_sets_error():
         def run(self):
             raise RuntimeError("ssh boom")
 
-    ctrl = RecoveryController(build_engine=lambda job: BoomEngine(job), thread_factory=_SyncThread)
+    ctrl = RecoveryController(build_engine=BoomEngine, thread_factory=_SyncThread)
     assert ctrl.start_apply() is True
     snap = ctrl.job.snapshot()
     assert snap["status"] == "done"

@@ -108,7 +108,9 @@ def create_app(
     def recover(req: RecoverRequest):
         rec = app.state.recovery
         if rec is None:
-            raise HTTPException(status_code=403, detail="recovery unavailable (demo or no SSH config)")
+            raise HTTPException(
+                status_code=403, detail="recovery unavailable (demo or no SSH config)"
+            )
         if req.mode == "preview":
             return rec.preview(app.state.diag.connectivity())
         if req.mode == "apply":

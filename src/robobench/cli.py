@@ -30,6 +30,7 @@ try:
     import uvicorn
 
     from robobench.panels.demo import DEMO_EXPECTED_NODES, seed_demo_state
+    from robobench.panels.recovery_controller import RecoveryController
     from robobench.panels.server import create_app
     from robobench.panels.state import DiagnosticState
 
@@ -299,6 +300,7 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
     namespace = kwargs["namespace"]
 
     state = DiagnosticState()
+    recovery = None
     if args.demo:
         import time  # noqa: PLC0415
 
@@ -346,8 +348,19 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
                 f"{args.ssh_probe_interval:.0f}s"
             )
         expected_nodes = _DEFAULT_EXPECTED_NODES
+        recovery = RecoveryController(
+            build_engine=lambda job: build_turtlebot4_recovery(
+                ip=kwargs["ip"],
+                ssh_user=kwargs["ssh_user"],
+                ssh_pass=kwargs["ssh_pass"],
+                namespace=namespace,
+                allow_reboot=False,
+                deadline_s=180.0,
+                event_log=job,
+            ),
+        )
 
-    app = create_app(state, namespace=namespace, expected_nodes=expected_nodes)
+    app = create_app(state, namespace=namespace, expected_nodes=expected_nodes, recovery=recovery)
     print(f"robobench dashboard on http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port)
     return 0

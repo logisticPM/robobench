@@ -5,10 +5,12 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import FastAPI
 
 from robobench import __version__, cli
 from robobench.cli import main
 from robobench.panels.connectivity_probe import run_connectivity_probe
+from robobench.panels.recovery_controller import RecoveryController
 
 _DEFAULT_SSH_PROBE_INTERVAL = 20.0
 
@@ -517,3 +519,55 @@ def test_bringup_resolves_named_pose(monkeypatch, tmp_path):
     )
     assert rc == 0
     assert poses_set == [(5.19, 2.56, 0.0)]
+
+
+def _fake_thread_factory():
+    class _T:
+        def __init__(self, *a, **k):
+            pass
+
+        def start(self):
+            pass
+
+    return _T
+
+
+def test_dashboard_injects_recovery_controller(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_create_app(state, namespace, expected_nodes=None, *, recovery=None):
+        captured["recovery"] = recovery
+        return FastAPI()
+
+    monkeypatch.setattr("robobench.cli.create_app", fake_create_app)
+    monkeypatch.setattr("robobench.cli.uvicorn.run", lambda *a, **k: None)
+    monkeypatch.setattr("robobench.cli.threading.Thread", _fake_thread_factory())
+
+    rc = main(["dashboard", "--robot", "turtlebot4", "--config", str(_dashboard_config(tmp_path))])
+    assert rc == 0
+    assert isinstance(captured["recovery"], RecoveryController)
+
+
+def test_dashboard_demo_has_no_recovery(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_create_app(state, namespace, expected_nodes=None, *, recovery=None):
+        captured["recovery"] = recovery
+        return FastAPI()
+
+    monkeypatch.setattr("robobench.cli.create_app", fake_create_app)
+    monkeypatch.setattr("robobench.cli.uvicorn.run", lambda *a, **k: None)
+    monkeypatch.setattr("robobench.cli.threading.Thread", _fake_thread_factory())
+
+    rc = main(
+        [
+            "dashboard",
+            "--robot",
+            "turtlebot4",
+            "--config",
+            str(_dashboard_config(tmp_path)),
+            "--demo",
+        ]
+    )
+    assert rc == 0
+    assert captured["recovery"] is None
