@@ -490,7 +490,7 @@ def test_bringup_resolves_named_pose(monkeypatch, tmp_path):
         def launch(self):
             pass
 
-        def activate_lifecycle(self, map_yaml=None):
+        def activate_lifecycle(self, map_yaml=None, *, initial_pose=None):
             pass
 
         def set_initial_pose(self, x, y, theta):

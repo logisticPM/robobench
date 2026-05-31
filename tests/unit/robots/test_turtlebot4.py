@@ -254,6 +254,37 @@ def test_activate_lifecycle_requires_map_yaml():
         _adapter().activate_lifecycle()
 
 
+def test_activate_lifecycle_passes_initial_pose_flags_to_activator(mocker):
+    """activate_lifecycle(initial_pose=...) appends --initial-pose-* flags to the command."""
+    run_mock = mocker.patch(
+        "robobench.robots.turtlebot4.run_local",
+        return_value=MagicMock(returncode=0, stdout="all activated\n", stderr=""),
+    )
+
+    _adapter().activate_lifecycle(map_yaml="/m.yaml", initial_pose=(1.0, 2.0, 0.5))
+
+    cmd = run_mock.call_args.args[0]
+    assert "--initial-pose-x" in cmd
+    assert "1.0" in cmd
+    assert "--initial-pose-y" in cmd
+    assert "2.0" in cmd
+    assert "--initial-pose-yaw" in cmd
+    assert "0.5" in cmd
+
+
+def test_activate_lifecycle_omits_pose_flags_when_initial_pose_is_none(mocker):
+    """activate_lifecycle without initial_pose does NOT include --initial-pose-x (backward compat)."""
+    run_mock = mocker.patch(
+        "robobench.robots.turtlebot4.run_local",
+        return_value=MagicMock(returncode=0, stdout="all activated\n", stderr=""),
+    )
+
+    _adapter().activate_lifecycle(map_yaml="/m.yaml")
+
+    cmd = run_mock.call_args.args[0]
+    assert "--initial-pose-x" not in cmd
+
+
 def test_set_initial_pose_publishes_to_initialpose(mocker):
     """set_initial_pose runs ros2 topic pub --once on /<ns>/initialpose."""
     run_mock = mocker.patch(

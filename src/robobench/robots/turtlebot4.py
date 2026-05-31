@@ -186,7 +186,9 @@ class TurtleBot4Adapter(RobotAdapter):
         target = pid_path if pid_path is not None else Path("/tmp/robobench_launch.pid")
         target.write_text(f"{proc.pid}\n")
 
-    def activate_lifecycle(self, map_yaml: str | None = None) -> None:
+    def activate_lifecycle(
+        self, map_yaml: str | None = None, *, initial_pose: tuple[float, float, float] | None = None
+    ) -> None:
         """Configure+activate all Nav2 nodes via the persistent activator.
 
         On activator failure, fall back to per-node ``ros2 lifecycle set``
@@ -195,16 +197,17 @@ class TurtleBot4Adapter(RobotAdapter):
         """
         if map_yaml is None:
             raise ValueError("activate_lifecycle requires map_yaml path")
-        result = run_local(
-            [
-                "robobench-lifecycle-activator",
-                "--namespace",
-                self.namespace,
-                "--map-yaml",
-                map_yaml,
-            ],
-            timeout=180,
-        )
+        cmd = [
+            "robobench-lifecycle-activator",
+            "--namespace",
+            self.namespace,
+            "--map-yaml",
+            map_yaml,
+        ]
+        if initial_pose is not None:
+            x, y, yaw = initial_pose
+            cmd += ["--initial-pose-x", str(x), "--initial-pose-y", str(y), "--initial-pose-yaw", str(yaw)]
+        result = run_local(cmd, timeout=180)
         if result.returncode == 0:
             return
 

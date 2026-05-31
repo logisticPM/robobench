@@ -237,7 +237,7 @@ def _cmd_bringup(args: argparse.Namespace) -> int:
     print("[3/5] launch ...")
     adapter.launch()
     print("[4/5] activate lifecycle ...")
-    adapter.activate_lifecycle(map_yaml=args.map_yaml)
+    adapter.activate_lifecycle(map_yaml=args.map_yaml, initial_pose=(x, y, theta))
     adapter.set_initial_pose(x, y, theta)
     print("[5/5] health check ...")
     report = adapter.health_check()

@@ -43,11 +43,15 @@ class RobotAdapter(ABC):
         """Start the navigation stack on the robot."""
 
     @abstractmethod
-    def activate_lifecycle(self, map_yaml: str | None = None) -> None:
+    def activate_lifecycle(
+        self, map_yaml: str | None = None, *, initial_pose: tuple[float, float, float] | None = None
+    ) -> None:
         """Bring lifecycle nodes through configure -> activate.
 
         Args:
             map_yaml: Absolute path to the static map YAML to load.
+            initial_pose: Optional (x, y, yaw) tuple passed to the activator so
+                AMCL receives the correct starting pose before Nav2 costmaps come up.
         """
 
     @abstractmethod
