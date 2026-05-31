@@ -5,6 +5,21 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.11.2a0] — 2026-05-30
+
+### Fixed
+
+- `main()` now catches `FileNotFoundError` and `ValueError` raised during
+  command dispatch and prints a clean `error: …` message to stderr (exit 2)
+  instead of a raw traceback. Affects all config-loading subcommands:
+  `bringup`, `health`, `shutdown`, `preflight`, `recover`, `bridge`, `odom-tf`,
+  `dashboard`.
+- `recover --dry-run` now prints distinct messages for three cases:
+  healthy robot (`robot is healthy; nothing to recover`), unreachable robot
+  (`robot unreachable (ping failed) — check power/network; recovery cannot fix
+  this remotely`), and a stuck robot with no non-nuclear ladder action available.
+  Previously all three printed the misleading `healthy or nothing to try`.
+
 ## [0.11.1a0] — 2026-05-30
 
 ### Fixed
