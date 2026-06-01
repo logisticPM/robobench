@@ -5,6 +5,19 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.15.1a0] — 2026-06-01
+
+### Fixed
+- The SSH probe now honors the configured `dds.discovery_port` instead of
+  hardcoding `11811`, so `preflight`/`recover`/`watch` and the dashboard
+  connectivity panel no longer misreport "discovery server down" on a non-default
+  port. The port check is tightened to match `:<port>`.
+
+### Added
+- A `networking` case for the most common Discovery Server gotcha: connecting as a
+  plain CLIENT (forgetting `ROS_SUPER_CLIENT=True`) so `ros2 topic list`/`node list`
+  look empty even though the robot is healthy.
+
 ## [0.15.0a0] — 2026-05-31
 
 ### Changed

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "robobench"
-version = "0.15.0a0"
+version = "0.15.1a0"
 description = "Open-source ROS2 platform for robot hardware bring-up and debugging."
 readme = "README.md"
 requires-python = ">=3.11"

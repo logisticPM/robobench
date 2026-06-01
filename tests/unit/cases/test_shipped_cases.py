@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from robobench.cases import SUBSYSTEMS, load_cases
 
-MIN_SHIPPED_CASES = 14
+MIN_SHIPPED_CASES = 15
 
 
 def test_all_shipped_cases_load():
@@ -28,3 +28,10 @@ def test_odom_publishing_gap_is_closed():
     by_id = {c.id: c for c in load_cases()}
     assert "odom-not-publishing" in by_id
     assert by_id["odom-not-publishing"].subsystem == "base"
+
+
+def test_super_client_gotcha_case_present():
+    by_id = {c.id: c for c in load_cases()}
+    case = by_id.get("connected-as-client-not-super-client")
+    assert case is not None and case.subsystem == "networking"
+    assert "ROS_SUPER_CLIENT" in case.fix

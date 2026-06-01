@@ -1,0 +1,13 @@
+id: connected-as-client-not-super-client
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: networking
+  tags: [discovery-server, fastdds, super-client, introspection]
+title: "Connected but the graph looks empty (CLIENT, not SUPER_CLIENT)"
+cause: "You reached the Discovery Server as a plain CLIENT, so `ros2 topic list` / `ros2 node list` show nothing even though the robot is fine. The server only pushes the full graph to SUPER_CLIENT participants."
+fix: "Export `ROS_SUPER_CLIENT=True` (alongside `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` and `ROS_DISCOVERY_SERVER=<robot-ip>:<port>`), or point `FASTRTPS_DEFAULT_PROFILES_FILE` at a super_client XML profile, then retry."
+verify: "`ros2 node list` now lists the robot's nodes."
+links:
+  - "https://docs.ros.org/en/humble/Tutorials/Advanced/Discovery-Server/Discovery-Server.html"

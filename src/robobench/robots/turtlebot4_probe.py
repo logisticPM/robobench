@@ -35,6 +35,7 @@ class TurtleBot4Probe(RobotProbe):
         ssh_pass: str,
         namespace: str,
         *,
+        discovery_port: int = 11811,
         ssh_factory: Callable[..., SSHClient] = SSHClient,
         run_local=None,
         ping: Callable[[str], bool] | None = None,
@@ -43,6 +44,7 @@ class TurtleBot4Probe(RobotProbe):
         self.ssh_user = ssh_user
         self.ssh_pass = ssh_pass
         self.namespace = namespace
+        self.discovery_port = discovery_port
         self._ssh_factory = ssh_factory
         self._run_local = run_local if run_local is not None else _rl_default
         self._ping = ping or _default_ping
@@ -75,7 +77,10 @@ class TurtleBot4Probe(RobotProbe):
             )
 
         with self._ssh_factory(self.ip, self.ssh_user, self.ssh_pass) as ssh:
-            ds = ssh.run(["sh", "-c", "ss -ulnp | grep 11811 | wc -l"], timeout=10)
+            ds = ssh.run(
+                ["sh", "-c", f"ss -ulnp | grep ':{self.discovery_port}' | wc -l"],
+                timeout=10,
+            )
             discovery_ok = ds.returncode == 0 and _parse_int(ds.stdout) > 0
 
             dt = ssh.run(["date", "+%s"], timeout=10)

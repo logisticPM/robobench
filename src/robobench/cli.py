@@ -396,6 +396,7 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
                 ssh_user=kwargs["ssh_user"],
                 ssh_pass=kwargs["ssh_pass"],
                 namespace=namespace,
+                discovery_port=kwargs["discovery_port"],
             )
             threading.Thread(
                 target=run_connectivity_probe,
@@ -416,6 +417,7 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
                 namespace=namespace,
                 allow_reboot=False,
                 deadline_s=180.0,
+                discovery_port=kwargs["discovery_port"],
                 event_log=job,
             ),
         )
@@ -437,6 +439,7 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
         ssh_user=kwargs["ssh_user"],
         ssh_pass=kwargs["ssh_pass"],
         namespace=kwargs["namespace"],
+        discovery_port=kwargs["discovery_port"],
     )
     state = probe.read()
     event_log = EventLogger()
@@ -473,6 +476,7 @@ def _cmd_recover(args: argparse.Namespace) -> int:
             ssh_user=kwargs["ssh_user"],
             ssh_pass=kwargs["ssh_pass"],
             namespace=kwargs["namespace"],
+            discovery_port=kwargs["discovery_port"],
         )
         state = probe.read()
         aspect = state.failing_aspect()
@@ -507,6 +511,7 @@ def _cmd_recover(args: argparse.Namespace) -> int:
         namespace=kwargs["namespace"],
         allow_reboot=args.allow_reboot,
         deadline_s=args.deadline,
+        discovery_port=kwargs["discovery_port"],
         event_log=event_log,
     )
     try:
@@ -613,6 +618,7 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         ssh_user=kwargs["ssh_user"],
         ssh_pass=kwargs["ssh_pass"],
         namespace=kwargs["namespace"],
+        discovery_port=kwargs["discovery_port"],
     )
     event_log = EventLogger()
 
@@ -627,6 +633,7 @@ def _cmd_watch(args: argparse.Namespace) -> int:
                 namespace=kwargs["namespace"],
                 allow_reboot=False,
                 deadline_s=180.0,
+                discovery_port=kwargs["discovery_port"],
                 event_log=event_log,
             ).run()
 

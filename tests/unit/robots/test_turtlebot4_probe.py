@@ -187,3 +187,36 @@ def test_read_connectivity_short_circuits_on_unreachable():
     state = probe.read_connectivity()
     assert state.rpi_reachable is False
     assert commands == []  # no SSH attempted when ping fails
+
+
+def test_discovery_check_uses_configured_port():
+    """A non-default discovery_port is what gets grepped (not hardcoded 11811)."""
+    commands: list = []
+    probe = TurtleBot4Probe(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="tb",
+        discovery_port=11888,
+        ssh_factory=lambda *a, **k: _RecordingSSH(commands),
+        ping=lambda _ip: True,
+    )
+    probe.read_connectivity()
+    discovery = next(" ".join(c) for c in commands if "ss -ulnp" in " ".join(c))
+    assert ":11888" in discovery
+    assert "11811" not in discovery
+
+
+def test_discovery_port_defaults_to_11811():
+    commands: list = []
+    probe = TurtleBot4Probe(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace="tb",
+        ssh_factory=lambda *a, **k: _RecordingSSH(commands),
+        ping=lambda _ip: True,
+    )
+    probe.read_connectivity()
+    discovery = next(" ".join(c) for c in commands if "ss -ulnp" in " ".join(c))
+    assert ":11811" in discovery

@@ -93,10 +93,17 @@ def build_turtlebot4_recovery(
     allow_reboot: bool,
     deadline_s: float,
     settle_s: float = 8.0,
+    discovery_port: int = 11811,
     event_log: object | None = None,
 ) -> RecoveryEngine:
     """Wire a TurtleBot4 probe + actions into a ready-to-run RecoveryEngine."""
-    probe = TurtleBot4Probe(ip=ip, ssh_user=ssh_user, ssh_pass=ssh_pass, namespace=namespace)
+    probe = TurtleBot4Probe(
+        ip=ip,
+        ssh_user=ssh_user,
+        ssh_pass=ssh_pass,
+        namespace=namespace,
+        discovery_port=discovery_port,
+    )
     actions = TurtleBot4RecoveryActions(
         ip=ip, ssh_user=ssh_user, ssh_pass=ssh_pass, namespace=namespace
     )
