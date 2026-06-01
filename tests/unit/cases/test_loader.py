@@ -93,6 +93,12 @@ def test_load_cases_raises_on_malformed_yaml(tmp_path: Path):
         load_cases([tmp_path])
 
 
+def test_load_cases_raises_on_non_dict_yaml(tmp_path: Path):
+    (tmp_path / "list.yaml").write_text("- item\n- item2\n", encoding="utf-8")
+    with pytest.raises(CaseValidationError, match="case must be a mapping"):
+        load_cases([tmp_path])
+
+
 def test_find_cases_filters_by_subsystem():
     cases = [_case("a", "networking", None), _case("b", "sensor", None)]
     assert [c.id for c in find_cases(cases, subsystem="networking")] == ["a"]

@@ -75,7 +75,15 @@ def _default_cases_dir() -> Path:
 
 @cache
 def _load_dir(dir_str: str) -> tuple[Case, ...]:
+    """Load + validate all ``*.yaml`` cases in *dir_str* (cached per directory).
+
+    Results are cached for the process lifetime; call ``_load_dir.cache_clear()``
+    in tests that must reload the same directory. ``@cache`` stores only
+    successful results, so a raising call is not memoized.
+    """
     directory = Path(dir_str)
+    if not directory.is_dir():
+        return ()
     cases: list[Case] = []
     for path in sorted(directory.glob("*.yaml")):
         try:
