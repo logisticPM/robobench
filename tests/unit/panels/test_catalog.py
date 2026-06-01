@@ -1,29 +1,23 @@
-"""Tests for the failure catalog."""
+"""Tests for the data-driven failure catalog (panels.catalog)."""
 
 from __future__ import annotations
 
-from robobench.panels.catalog import FAILURE_CATALOG, lookup_fixes
+from robobench.cases import SUBSYSTEMS
+from robobench.panels.catalog import _KEY_TO_SUBSYSTEM, lookup_fixes
 
 
-def test_catalog_has_entries_for_core_checks():
-    """Every core diagnostic check has at least one catalog entry."""
-    for check in ("clock_offset", "sensor_rate", "tf_tree", "dds_graph"):
-        assert check in FAILURE_CATALOG
-        assert len(FAILURE_CATALOG[check]) >= 1
-        for entry in FAILURE_CATALOG[check]:
-            assert {"cause", "fix"} <= entry.keys()
-
-
-def test_lookup_fixes_returns_matching_entries():
-    """A FAIL status returns the catalog entries for that check."""
+def test_lookup_fixes_returns_backward_compatible_shape():
     fixes = lookup_fixes("clock_offset", status="FAIL")
     assert isinstance(fixes, list)
     assert len(fixes) >= 1
-    assert "fix" in fixes[0]
+    assert {"cause", "fix", "link"} <= fixes[0].keys()
+
+
+def test_lookup_fixes_warn_also_returns_fixes():
+    assert lookup_fixes("sensor_rate", status="WARN")
 
 
 def test_lookup_fixes_ok_status_returns_empty():
-    """An OK status has nothing to fix."""
     assert lookup_fixes("clock_offset", status="OK") == []
 
 
@@ -43,7 +37,18 @@ def test_connectivity_aspect_fixes_present():
         "clock_synced",
         "create3_topics",
         "tb4_nodes_present",
+        "odom_publishing",
     ):
         fixes = lookup_fixes(aspect, "FAIL")
         assert fixes, f"no catalog fixes for {aspect}"
-        assert "fix" in fixes[0] and "cause" in fixes[0]
+        assert {"cause", "fix"} <= fixes[0].keys()
+
+
+def test_key_to_subsystem_maps_to_valid_subsystems():
+    for key, subsystem in _KEY_TO_SUBSYSTEM.items():
+        assert subsystem in SUBSYSTEMS, f"{key} -> {subsystem} not a known subsystem"
+
+
+def test_every_mapped_key_has_at_least_one_fix():
+    for key in _KEY_TO_SUBSYSTEM:
+        assert lookup_fixes(key, "FAIL"), f"no fixes for {key}"

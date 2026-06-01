@@ -1,128 +1,50 @@
 """Failure catalog: maps each diagnostic check to candidate causes + fixes.
 
 This is the "tell me how to fix it" half of robobench. When a panel reports
-WARN or FAIL, the server attaches the matching catalog entries so the user
-sees concrete next steps, not just a red light.
-
-Each entry is ``{"cause": str, "fix": str, "link": str | None}``.
-Keep entries terse and actionable — they render in a small panel.
+WARN or FAIL, the server attaches matching cases so the user sees concrete next
+steps, not just a red light. The fixes live as data in
+``robobench/data/cases/*.yaml`` (loaded via ``robobench.cases``); this module
+maps robobench's internal panel/aspect keys onto the robot-agnostic
+``subsystem`` vocabulary and projects matching cases to the
+``{cause, fix, link}`` shape the dashboard panels expect.
 """
 
 from __future__ import annotations
 
-FAILURE_CATALOG: dict[str, list[dict]] = {
-    "clock_offset": [
-        {
-            "cause": "Workstation and robot clocks drifted apart.",
-            "fix": "Run `robobench bringup` (configures chrony), or manually: "
-            "`ssh <robot> 'sudo chronyc -a makestep'`.",
-            "link": "https://docs.ros.org/en/rolling/Tutorials/Demos/Time.html",
-        },
-        {
-            "cause": "Workstation isn't serving NTP, so the robot can't follow it.",
-            "fix": "Add `allow 192.168.0.0/16` and `local stratum 10` to "
-            "/etc/chrony/chrony.conf, then `sudo systemctl restart chrony`.",
-            "link": None,
-        },
-    ],
-    "sensor_rate": [
-        {
-            "cause": "LiDAR/IMU not publishing, or QoS mismatch (BEST_EFFORT vs RELIABLE).",
-            "fix": "Check the sensor is powered and the driver node is up "
-            "(`ros2 node list`); confirm your subscriber QoS matches the publisher.",
-            "link": None,
-        },
-        {
-            "cause": "Network saturation dropping sensor packets.",
-            "fix": "Check WiFi signal / switch to ethernet; inspect `ros2 topic hz` "
-            "for the raw rate at the source.",
-            "link": None,
-        },
-    ],
-    "tf_tree": [
-        {
-            "cause": "A TF publisher died, leaving a stale/broken edge.",
-            "fix": "Identify the broken parent->child edge, find which node should "
-            "publish it (`ros2 topic info /tf`), and restart that node.",
-            "link": "https://docs.ros.org/en/rolling/Concepts/About-Tf2.html",
-        },
-        {
-            "cause": "Clock skew makes fresh transforms look stale.",
-            "fix": "Fix clock sync first (see the clock panel) — TF staleness is "
-            "often a symptom of clock drift, not a missing publisher.",
-            "link": None,
-        },
-        {
-            "cause": "Create3 isn't bridging the odom->base_link TF.",
-            "fix": "Run `robobench odom-tf --robot turtlebot4 --config config.yaml` "
-            "to republish odom->base_link from /odom.",
-            "link": None,
-        },
-    ],
-    "dds_graph": [
-        {
-            "cause": "Expected node never came up or crashed under Discovery Server.",
-            "fix": "Re-run `robobench-lifecycle-activator`; check the node's log. "
-            "FastDDS Discovery Server can silently drop late joiners (Nav2 #3560).",
-            "link": "https://github.com/ros-navigation/navigation2/issues/3560",
-        },
-        {
-            "cause": "Discovery Server not reachable from the workstation.",
-            "fix": "Verify `ROS_DISCOVERY_SERVER` env var and that the server port "
-            "(default 11811) is listening on the robot.",
-            "link": None,
-        },
-    ],
-    "rpi_reachable": [
-        {
-            "cause": "The robot's RPi is off, not on the network, or at a different IP.",
-            "fix": "Check the robot is powered and on the same network; verify "
-            "`robot.ip` in config.yaml; try `ping <ip>`.",
-            "link": None,
-        },
-    ],
-    "discovery_server_ok": [
-        {
-            "cause": "The FastDDS Discovery Server isn't listening on the robot.",
-            "fix": "SSH in and `sudo systemctl restart discovery.service`; confirm "
-            "port 11811 with `ss -ulnp | grep 11811`. (Nav2 #3560)",
-            "link": "https://github.com/ros-navigation/navigation2/issues/3560",
-        },
-    ],
-    "clock_synced": [
-        {
-            "cause": "Workstation and robot clocks have drifted apart.",
-            "fix": "Run `robobench bringup` (configures chrony), or "
-            "`ssh <robot> 'sudo chronyc -a makestep'`.",
-            "link": None,
-        },
-    ],
-    "create3_topics": [
-        {
-            "cause": "No /<namespace>/ topics — the Create3 base isn't publishing.",
-            "fix": "Restart the Create3 app, or run `robobench recover`. "
-            "Check the Create3 web UI at http://192.168.186.2.",
-            "link": None,
-        },
-    ],
-    "tb4_nodes_present": [
-        {
-            "cause": "The TurtleBot4 ROS nodes (Nav2 etc.) didn't come up.",
-            "fix": "Re-run `robobench-lifecycle-activator`, or `robobench recover`; "
-            "check the bring-up service: `systemctl status turtlebot4`.",
-            "link": None,
-        },
-    ],
+from robobench.cases import find_cases, load_cases
+
+# robobench's internal panel/aspect keys -> robot-agnostic case subsystem.
+_KEY_TO_SUBSYSTEM: dict[str, str] = {
+    "dds_graph": "networking",
+    "discovery_server_ok": "networking",
+    "rpi_reachable": "networking",
+    "clock_offset": "time_sync",
+    "clock_synced": "time_sync",
+    "tf_tree": "transform",
+    "sensor_rate": "sensor",
+    "tb4_nodes_present": "lifecycle",
+    "create3_topics": "base",
+    "odom_publishing": "base",
 }
 
 
-def lookup_fixes(check_name: str, status: str) -> list[dict]:
-    """Return catalog entries for a check when its status is WARN/FAIL.
+def lookup_fixes(
+    check_name: str, status: str, *, robot_model: str | None = None
+) -> list[dict]:
+    """Return catalog fixes for a check when its status is WARN/FAIL.
 
-    OK / UNKNOWN return an empty list (nothing to fix). Unknown check names
-    return an empty list rather than raising — callers pass whatever check
-    ran, and a missing catalog entry just means "no canned advice yet".
+    OK/UNKNOWN -> [] (nothing to fix). Unknown check names -> [] (no canned
+    advice yet) rather than raising. Each entry is ``{"cause", "fix", "link"}``
+    for backward compatibility with the dashboard panels. ``robot_model=None``
+    (the default) returns every case in the matched subsystem.
     """
     if status not in ("WARN", "FAIL"):
         return []
-    return list(FAILURE_CATALOG.get(check_name, []))
+    subsystem = _KEY_TO_SUBSYSTEM.get(check_name)
+    if subsystem is None:
+        return []
+    cases = find_cases(load_cases(), subsystem=subsystem, robot_model=robot_model)
+    return [
+        {"cause": c.cause, "fix": c.fix, "link": c.links[0] if c.links else None}
+        for c in cases
+    ]
