@@ -1,3 +1,3 @@
 """Robobench — Open-source ROS2 platform for robot hardware bring-up and debugging."""
 
-__version__ = "0.14.0a0"
+__version__ = "0.15.0a0"

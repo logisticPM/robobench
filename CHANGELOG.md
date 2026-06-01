@@ -5,6 +5,20 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.15.0a0] — 2026-05-31
+
+### Changed
+- Promoted the hardcoded failure catalog into a robot-agnostic, versioned **case**
+  format under `robobench/data/cases/*.yaml`, loaded via the new `robobench.cases`
+  module. The dashboard panels are unchanged; fixes are now data — deduped and
+  contributable as plain files.
+
+### Added
+- `robobench.cases`: `Case`, `load_cases`, `find_cases`, `validate_case`, and the
+  six-value `SUBSYSTEMS` vocabulary (`networking`, `time_sync`, `transform`,
+  `sensor`, `lifecycle`, `base`).
+- A `base` case for the previously-uncatalogued `odom_publishing` failure.
+
 ## [0.14.0a0] — 2026-05-30
 
 ### Added
