@@ -9,6 +9,6 @@ match:
 title: "FastDDS Discovery Server not listening"
 cause: "The FastDDS Discovery Server isn't listening on the robot."
 fix: "SSH in and `sudo systemctl restart discovery.service`; confirm port 11811 with `ss -ulnp | grep 11811`."
-verify: "`robobench preflight` shows discovery_server_ok = true."
+verify: "`robobench preflight` shows discovery_server_ok = true, or `ss -ulnp | grep 11811` shows the port bound."
 links:
   - "https://github.com/ros-navigation/navigation2/issues/3560"

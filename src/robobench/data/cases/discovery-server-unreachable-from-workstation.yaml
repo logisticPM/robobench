@@ -8,5 +8,5 @@ match:
 title: "Discovery Server not reachable from the workstation"
 cause: "The workstation can't reach the FastDDS Discovery Server."
 fix: "Verify the `ROS_DISCOVERY_SERVER` env var and that the server port (default 11811) is listening on the robot."
-verify: "`ros2 daemon stop && ros2 node list` shows the robot's nodes."
+verify: "`nc -zv <robot-ip> 11811` connects to the Discovery Server port."
 links: []
