@@ -44,11 +44,20 @@ def test_connectivity_aspect_fixes_present():
         assert {"cause", "fix"} <= fixes[0].keys()
 
 
+def test_lookup_fixes_link_is_first_link_or_none():
+    # clocks-drifted has a link; workstation-not-serving-ntp has none.
+    links = [f["link"] for f in lookup_fixes("clock_offset", "FAIL")]
+    assert any(lnk is not None for lnk in links), "expected at least one non-None link"
+    assert any(lnk is None for lnk in links), "expected at least one None link"
+
+
 def test_key_to_subsystem_maps_to_valid_subsystems():
+    # Whitebox: drives directly off _KEY_TO_SUBSYSTEM so new keys are auto-covered.
     for key, subsystem in _KEY_TO_SUBSYSTEM.items():
         assert subsystem in SUBSYSTEMS, f"{key} -> {subsystem} not a known subsystem"
 
 
 def test_every_mapped_key_has_at_least_one_fix():
+    # Whitebox: every registered key must resolve to at least one shipped case.
     for key in _KEY_TO_SUBSYSTEM:
         assert lookup_fixes(key, "FAIL"), f"no fixes for {key}"

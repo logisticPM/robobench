@@ -13,7 +13,10 @@ from __future__ import annotations
 
 from robobench.cases import find_cases, load_cases
 
-# robobench's internal panel/aspect keys -> robot-agnostic case subsystem.
+# Bridge between robobench's panel/aspect keys (left) and the robot-agnostic
+# ``subsystem`` vocabulary from robobench.cases (right). A check_name not listed
+# here yields no canned fixes — register a new key here when a new panel/aspect
+# is wired up.
 _KEY_TO_SUBSYSTEM: dict[str, str] = {
     "dds_graph": "networking",
     "discovery_server_ok": "networking",
@@ -34,7 +37,8 @@ def lookup_fixes(
     """Return catalog fixes for a check when its status is WARN/FAIL.
 
     OK/UNKNOWN -> [] (nothing to fix). Unknown check names -> [] (no canned
-    advice yet) rather than raising. Each entry is ``{"cause", "fix", "link"}``
+    advice yet) rather than raising. Each entry is
+    ``{"cause": str, "fix": str, "link": str | None}``
     for backward compatibility with the dashboard panels. ``robot_model=None``
     (the default) returns every case in the matched subsystem.
     """
