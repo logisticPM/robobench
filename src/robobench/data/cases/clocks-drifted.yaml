@@ -1,0 +1,13 @@
+id: clocks-drifted
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: time_sync
+  tags: [clock, chrony, ntp]
+title: "Workstation and robot clocks drifted apart"
+cause: "The workstation and robot clocks have drifted apart, breaking TF and message timestamps."
+fix: "Run `robobench bringup` (configures chrony), or manually: `ssh <robot> 'sudo chronyc -a makestep'`."
+verify: "`robobench check` reports a sub-second offset."
+links:
+  - "https://docs.ros.org/en/rolling/Tutorials/Demos/Time.html"

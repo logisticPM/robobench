@@ -1,0 +1,12 @@
+id: rpi-unreachable
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: networking
+  tags: [reachability, network, ssh]
+title: "Robot host is unreachable"
+cause: "The robot's onboard computer is off, not on the network, or at a different IP."
+fix: "Check the robot is powered and on the same network; verify `robot.ip` in config.yaml; try `ping <ip>`."
+verify: "`ping <robot-ip>` succeeds."
+links: []

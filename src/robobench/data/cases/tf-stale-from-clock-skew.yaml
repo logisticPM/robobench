@@ -1,0 +1,12 @@
+id: tf-stale-from-clock-skew
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: transform
+  tags: [tf, clock]
+title: "TF looks stale due to clock skew"
+cause: "Clock skew makes fresh transforms look stale."
+fix: "Fix clock sync first (see the clock panel) — TF staleness is often a symptom of clock drift, not a missing publisher."
+verify: "After clock sync, transforms are no longer reported stale."
+links: []

@@ -1,0 +1,13 @@
+id: create3-not-bridging-odom-tf
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: transform
+  tags: [tf, odom, create3]
+  robot_model: turtlebot4
+title: "Create3 isn't bridging the odom->base_link TF"
+cause: "The Create3 firmware isn't publishing the odom->base_link transform."
+fix: "Run `robobench odom-tf --robot turtlebot4 --config config.yaml` to republish odom->base_link from /odom."
+verify: "`ros2 topic echo /tf` shows odom->base_link updating."
+links: []

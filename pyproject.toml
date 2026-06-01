@@ -55,6 +55,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "robobench.panels" = ["static/**/*"]
+"robobench" = ["data/cases/*.yaml"]
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,14 @@
+id: discovery-server-not-listening
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: networking
+  tags: [discovery-server, fastdds]
+  robot_model: turtlebot4
+title: "FastDDS Discovery Server not listening"
+cause: "The FastDDS Discovery Server isn't listening on the robot."
+fix: "SSH in and `sudo systemctl restart discovery.service`; confirm port 11811 with `ss -ulnp | grep 11811`."
+verify: "`robobench preflight` shows discovery_server_ok = true."
+links:
+  - "https://github.com/ros-navigation/navigation2/issues/3560"

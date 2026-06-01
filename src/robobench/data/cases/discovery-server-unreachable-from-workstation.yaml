@@ -1,0 +1,12 @@
+id: discovery-server-unreachable-from-workstation
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: networking
+  tags: [discovery-server, fastdds, env]
+title: "Discovery Server not reachable from the workstation"
+cause: "The workstation can't reach the FastDDS Discovery Server."
+fix: "Verify the `ROS_DISCOVERY_SERVER` env var and that the server port (default 11811) is listening on the robot."
+verify: "`ros2 daemon stop && ros2 node list` shows the robot's nodes."
+links: []

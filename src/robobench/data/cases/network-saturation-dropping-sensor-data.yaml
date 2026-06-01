@@ -1,0 +1,12 @@
+id: network-saturation-dropping-sensor-data
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: sensor
+  tags: [network, wifi, bandwidth]
+title: "Network saturation dropping sensor data"
+cause: "Network saturation is dropping sensor packets."
+fix: "Check WiFi signal / switch to ethernet; inspect `ros2 topic hz` for the raw rate at the source."
+verify: "`ros2 topic hz <topic>` is stable at the source rate."
+links: []

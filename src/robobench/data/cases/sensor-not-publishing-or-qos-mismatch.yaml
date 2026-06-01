@@ -1,0 +1,12 @@
+id: sensor-not-publishing-or-qos-mismatch
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: sensor
+  tags: [lidar, imu, qos]
+title: "Sensor not publishing or QoS mismatch"
+cause: "A sensor (LiDAR/IMU) isn't publishing, or there's a QoS mismatch (BEST_EFFORT vs RELIABLE)."
+fix: "Check the sensor is powered and the driver node is up (`ros2 node list`); confirm your subscriber QoS matches the publisher."
+verify: "`ros2 topic hz <topic>` shows the expected rate."
+links: []

@@ -1,0 +1,13 @@
+id: tf-publisher-died
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: transform
+  tags: [tf, tf2]
+title: "A TF publisher died"
+cause: "A TF publisher died, leaving a stale or broken edge in the transform tree."
+fix: "Identify the broken parent->child edge, find which node should publish it (`ros2 topic info /tf`), and restart that node."
+verify: "`ros2 run tf2_tools view_frames` shows a connected tree."
+links:
+  - "https://docs.ros.org/en/rolling/Concepts/About-Tf2.html"

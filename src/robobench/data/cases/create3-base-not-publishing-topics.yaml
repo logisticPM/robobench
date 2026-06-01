@@ -1,0 +1,13 @@
+id: create3-base-not-publishing-topics
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: base
+  tags: [create3, base, topics]
+  robot_model: turtlebot4
+title: "Create3 base isn't publishing topics"
+cause: "No /<namespace>/ topics — the Create3 base isn't publishing."
+fix: "Restart the Create3 app, or run `robobench recover`. Check the Create3 web UI at http://192.168.186.2."
+verify: "`ros2 topic list` shows the namespaced Create3 topics."
+links: []

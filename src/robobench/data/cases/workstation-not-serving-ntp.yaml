@@ -1,0 +1,12 @@
+id: workstation-not-serving-ntp
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: time_sync
+  tags: [clock, chrony, ntp]
+title: "Workstation isn't serving NTP"
+cause: "The workstation isn't serving NTP, so the robot can't follow its clock."
+fix: "Add `allow 192.168.0.0/16` and `local stratum 10` to /etc/chrony/chrony.conf, then `sudo systemctl restart chrony`."
+verify: "`chronyc sources` on the robot lists the workstation."
+links: []

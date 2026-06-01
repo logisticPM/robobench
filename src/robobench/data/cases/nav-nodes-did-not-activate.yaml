@@ -1,0 +1,13 @@
+id: nav-nodes-did-not-activate
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: lifecycle
+  tags: [nav2, lifecycle, bringup]
+  robot_model: turtlebot4
+title: "Navigation nodes didn't come up"
+cause: "The TurtleBot4 ROS nodes (Nav2 etc.) didn't come up or failed to activate."
+fix: "Re-run `robobench-lifecycle-activator`, or `robobench recover`; check the bring-up service: `systemctl status turtlebot4`."
+verify: "`ros2 node list` shows the Nav2 lifecycle nodes."
+links: []

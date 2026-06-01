@@ -1,0 +1,13 @@
+id: node-dropped-under-discovery-server
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: networking
+  tags: [discovery-server, fastdds, late-joiner, lifecycle]
+title: "Expected node dropped under Discovery Server"
+cause: "An expected node never came up or crashed; FastDDS Discovery Server can silently drop late joiners."
+fix: "Re-run `robobench-lifecycle-activator` and check the node's log. (Nav2 #3560)"
+verify: "`ros2 node list` shows the expected node."
+links:
+  - "https://github.com/ros-navigation/navigation2/issues/3560"

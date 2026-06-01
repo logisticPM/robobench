@@ -1,0 +1,13 @@
+id: odom-not-publishing
+schema_version: 1
+provenance: verified
+contributed_by: robobench
+match:
+  subsystem: base
+  tags: [odom, create3]
+  robot_model: turtlebot4
+title: "Odometry isn't being published"
+cause: "The /odom topic is absent — the Create3 base isn't publishing odometry."
+fix: "Confirm the Create3 base is up (`robobench recover`), then republish the TF with `robobench odom-tf` if /odom exists but the transform doesn't."
+verify: "`ros2 topic hz /odom` shows a steady rate."
+links: []
