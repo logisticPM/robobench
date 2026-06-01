@@ -90,6 +90,43 @@ A persistent FastAPI server can hold one rclpy node alive across many
 requests, paying the DDS-discovery cost once. Adapters stay subprocess-
 based; only the panel layer switches.
 
+## 5. How robobench connects: the FastDDS Discovery Server
+
+robobench connects the way the upstream deploy did — **not** ROS2's default
+Simple Discovery (UDP multicast), but a **FastDDS Discovery Server**. The robot's
+onboard computer runs the server (UDP `11811` by default, configurable via
+`dds.discovery_port`); the workstation joins it as a client.
+
+Three environment settings must agree for a workstation participant to connect
+**and** see the full graph:
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| `RMW_IMPLEMENTATION` | `rmw_fastrtps_cpp` | Discovery Server is a FastDDS feature; CycloneDDS can't join |
+| `ROS_DISCOVERY_SERVER` | `<robot-ip>:<port>` | points the participant at the server (unicast, not multicast) |
+| `ROS_SUPER_CLIENT` | `True` | a plain **CLIENT** connects but only sees what the server forwards; a **SUPER_CLIENT** gets the *whole* graph — required for `ros2 topic list` / `ros2 node list` |
+
+The single most common, most confusing failure of this mode is omitting
+`ROS_SUPER_CLIENT`: you connect fine but `ros2 topic list` is empty even though
+the robot is healthy. (robobench ships a catalog case for exactly this:
+`connected-as-client-not-super-client`.)
+
+**Where robobench sets this up:**
+- `panels/bridge.py::dds_env` sets all three before `rclpy.init()`, so the
+  dashboard connects from `config.yaml` instead of a hand-exported shell env.
+- `relay/runner.py` holds two contexts — one with the Discovery-Server vars and
+  one with them stripped (Simple Discovery) — to bridge topics across the two
+  graphs when discovery drops late joiners.
+- `robots/turtlebot4_probe.py` runs `ros2` introspection **over SSH on the
+  robot** with `ROS_SUPER_CLIENT=True`, side-stepping the workstation's client
+  config entirely; its `discovery_server_ok` check greps the configured
+  `dds.discovery_port` on the robot.
+
+**Assumption — server id 0.** `ROS_DISCOVERY_SERVER="ip:port"` encodes the server
+id by *list position*, so a single server is always id 0 (matching the upstream
+`fastdds_super_client.xml`, whose GUID prefix `44.53.00.5f...` is the canonical
+id-0 default). robobench does not support multi-server / non-zero-id setups.
+
 ## File-by-file map
 
 | File | Owns |
