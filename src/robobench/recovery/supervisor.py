@@ -71,6 +71,8 @@ def run_supervisor(
             escalated = True
             say("escalate", {"reason": "max_attempts", "attempts": attempts})
         else:
+            # stamp + count BEFORE recover() so a raised recover() still enforces
+            # cooldown and the attempt cap
             last_attempt = now()
             attempts += 1
             try:

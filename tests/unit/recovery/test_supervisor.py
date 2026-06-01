@@ -139,6 +139,36 @@ def test_recover_exception_counts_and_continues():
     assert any(e == "escalate" for e, _ in events)
 
 
+def test_healthy_after_escalation_allows_fresh_recovery():
+    # unhealthy x2 (cap=2 -> escalate), then healthy (reset), then unhealthy -> recover again
+    states = iter([_BROKEN, _BROKEN, _BROKEN, _HEALTHY, _BROKEN])
+    results = iter([
+        RecoveryResult(outcome="STUCK"),
+        RecoveryResult(outcome="STUCK"),
+        RecoveryResult(outcome="CONVERGED", actions_taken=[]),
+    ])
+    calls = {"sleep": 0, "recover": 0}
+
+    def recover():
+        calls["recover"] += 1
+        return next(results)
+
+    events = []
+    run_supervisor(
+        probe=lambda: next(states),
+        recover=recover,
+        interval=1, cooldown_s=0, max_attempts=2,
+        sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
+        now=lambda: float(calls["sleep"]),
+        should_stop=lambda: calls["sleep"] >= 5,  # noqa: PLR2004
+        emit=lambda e, d: events.append((e, d)),
+    )
+    # cycle1 recover, cycle2 recover, cycle3 escalate (no recover), cycle4 healthy (reset),
+    # cycle5 unhealthy -> recover again
+    assert calls["recover"] == 3  # noqa: PLR2004
+    assert any(e == "escalate" for e, _ in events)
+
+
 def test_probe_exception_continues():
     calls = {"sleep": 0, "probe": 0}
     events = []

@@ -697,6 +697,31 @@ def test_watch_auto_recover_builds_recover(monkeypatch, tmp_path):
     assert captured["recover"] is not None  # auto-recover -> a recover callable
 
 
+def test_watch_auto_recover_never_enables_reboot(monkeypatch, tmp_path):
+    cfg = _dashboard_config(tmp_path)
+    captured = {}
+
+    from robobench.recovery.engine import RecoveryResult  # noqa: PLC0415
+
+    class _FakeEngine:
+        def run(self):
+            return RecoveryResult(outcome="CONVERGED", actions_taken=[])
+
+    def fake_build(**kwargs):
+        captured.update(kwargs)
+        return _FakeEngine()
+
+    monkeypatch.setattr("robobench.cli.build_turtlebot4_recovery", fake_build)
+    # fake supervisor that invokes recover() once so the engine factory is exercised
+    monkeypatch.setattr(
+        "robobench.recovery.supervisor.run_supervisor",
+        lambda probe, recover, **kw: recover() if recover else None,
+    )
+    rc = main(["watch", "--robot", "turtlebot4", "--config", str(cfg), "--auto-recover"])
+    assert rc == 0
+    assert captured["allow_reboot"] is False
+
+
 def test_recover_dry_run_unreachable_message(monkeypatch, tmp_path, capsys):
     from robobench.recovery.state import RobotState  # noqa: PLC0415
 

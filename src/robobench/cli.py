@@ -634,7 +634,8 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         event_log.log(f"watch_{event}", data)
         detail = data.get("aspect") or data.get("reason") or data.get("outcome") or ""
         suffix = f" ({detail})" if detail else ""
-        print(f"[watch] {event}{suffix}")
+        stamp = _time.strftime("%H:%M:%S", _time.localtime())
+        print(f"[watch] {stamp}  {event}{suffix}")
 
     mode = "auto-recover" if args.auto_recover else "monitor-only"
     print(
