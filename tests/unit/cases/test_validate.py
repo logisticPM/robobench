@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from robobench.cases.validate import SUBSYSTEMS, validate_case
 
 
@@ -34,13 +36,17 @@ def test_valid_case_has_no_errors():
 
 
 def test_non_mapping_is_invalid():
-    assert validate_case(["not", "a", "dict"]) != []
+    errors = validate_case(["not", "a", "dict"])
+    assert any("mapping" in e for e in errors)
 
 
-def test_missing_required_field_reported():
+@pytest.mark.parametrize(
+    "field", ["id", "schema_version", "provenance", "contributed_by", "title", "cause", "fix"]
+)
+def test_missing_required_field_reported(field):
     raw = _valid()
-    del raw["fix"]
-    assert any("fix" in e for e in validate_case(raw))
+    del raw[field]
+    assert any(field in e for e in validate_case(raw))
 
 
 def test_missing_match_reported():
@@ -83,3 +89,9 @@ def test_links_must_be_list():
     raw = _valid()
     raw["links"] = "http://single"
     assert any("links" in e for e in validate_case(raw))
+
+
+def test_bool_schema_version_rejected():
+    raw = _valid()
+    raw["schema_version"] = True
+    assert any("schema_version" in e for e in validate_case(raw))

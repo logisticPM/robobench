@@ -24,6 +24,15 @@ def _is_str_list(value: object) -> bool:
     return isinstance(value, list) and all(isinstance(x, str) for x in value)
 
 
+def _validate_id(value: object) -> list[str]:
+    """Return errors for the ``id`` field."""
+    if not isinstance(value, str):
+        return ["id must be a string"]
+    if not _SLUG_RE.match(value):
+        return ["id must be a slug matching [a-z0-9-]+"]
+    return []
+
+
 def _validate_match(match: object) -> list[str]:
     """Return errors for the ``match`` sub-mapping."""
     if not isinstance(match, dict):
@@ -53,11 +62,11 @@ def validate_case(raw: object) -> list[str]:
         if key not in raw:
             errors.append(f"missing required field: {key}")
 
-    case_id = raw.get("id")
-    if "id" in raw and (not isinstance(case_id, str) or not _SLUG_RE.match(case_id)):
-        errors.append("id must be a slug matching [a-z0-9-]+")
+    if "id" in raw:
+        errors.extend(_validate_id(raw["id"]))
 
-    if "schema_version" in raw and raw.get("schema_version") != KNOWN_SCHEMA_VERSION:
+    sv = raw.get("schema_version")
+    if "schema_version" in raw and (isinstance(sv, bool) or sv != KNOWN_SCHEMA_VERSION):
         errors.append(f"schema_version must be {KNOWN_SCHEMA_VERSION}")
 
     if "provenance" in raw and raw.get("provenance") not in _PROVENANCE:
@@ -73,6 +82,7 @@ def validate_case(raw: object) -> list[str]:
     if "links" in raw and not _is_str_list(raw["links"]):
         errors.append("links must be a list of strings")
 
+    # match is required too, but validated separately (needs the _validate_match dispatch).
     if "match" not in raw:
         errors.append("missing required field: match")
     else:
