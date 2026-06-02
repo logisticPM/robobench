@@ -59,7 +59,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 _FASTRTPS = "rmw_fastrtps_cpp"
-_TRUTHY = frozenset({"true", "1", "yes", "on"})
+_TRUTHY = frozenset({"true", "1", "yes"})
 
 
 @dataclass(frozen=True)
