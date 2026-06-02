@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import os
 import sys
 import threading
 from collections.abc import Sequence
@@ -20,6 +21,7 @@ from pathlib import Path
 
 from robobench import __version__
 from robobench.config import load_adapter_config, render_config_template
+from robobench.dds_check import lint_dds_env
 from robobench.eventlog import EventLogger
 from robobench.eventreport import _RECOGNIZED_EVENTS, format_report, latest_event_log, parse_events
 from robobench.recovery.engine import _LADDER
@@ -221,6 +223,17 @@ def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
         help="Consecutive failed recoveries before escalating to monitor-only (default 3).",
     )
     watch.set_defaults(func=_cmd_watch)
+
+    dds_check = subparsers.add_parser(
+        "dds-check",
+        help="Lint your shell's DDS env (Discovery Server / SUPER_CLIENT / RMW).",
+    )
+    dds_check.add_argument(
+        "--config",
+        default=None,
+        help="Optional: cross-check ROS_DISCOVERY_SERVER against config's ip:discovery_port.",
+    )
+    dds_check.set_defaults(func=_cmd_dds_check)
 
     return parser
 
@@ -665,6 +678,34 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         print("\n[watch] stopped")
     finally:
         event_log.close()
+    return 0
+
+
+def _cmd_dds_check(args: argparse.Namespace) -> int:
+    expected = None
+    if args.config:
+        kwargs = load_adapter_config(Path(args.config))
+        expected = f"{kwargs['ip']}:{kwargs['discovery_port']}"
+
+    findings = lint_dds_env(dict(os.environ), expected)
+    for finding in findings:
+        print(f"[dds-check] {finding.message}  [{finding.level.upper()}]")
+
+    if any(f.check == "super_client" and f.level == "error" for f in findings):
+        from robobench.cases import load_cases  # noqa: PLC0415
+
+        case = next(
+            (c for c in load_cases() if c.id == "connected-as-client-not-super-client"),
+            None,
+        )
+        if case is not None:
+            print(f"  -> {case.fix}")
+
+    errors = [f for f in findings if f.level == "error"]
+    if errors:
+        print(f"result: {len(errors)} error(s) — your shell won't see the robot's graph")
+        return 1
+    print("result: OK — your shell is configured to see the robot's graph")
     return 0
 
 

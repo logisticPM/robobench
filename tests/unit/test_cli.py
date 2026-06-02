@@ -722,6 +722,60 @@ def test_watch_auto_recover_never_enables_reboot(monkeypatch, tmp_path):
     assert captured["allow_reboot"] is False
 
 
+def test_dds_check_flags_plain_client(monkeypatch, capsys):
+    from robobench.cli import main  # noqa: PLC0415
+
+    monkeypatch.setenv("RMW_IMPLEMENTATION", "rmw_fastrtps_cpp")
+    monkeypatch.setenv("ROS_DISCOVERY_SERVER", "192.168.50.31:11811")
+    monkeypatch.delenv("ROS_SUPER_CLIENT", raising=False)
+    monkeypatch.delenv("FASTRTPS_DEFAULT_PROFILES_FILE", raising=False)
+
+    rc = main(["dds-check"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "plain CLIENT" in out
+    assert "ROS_SUPER_CLIENT=True" in out  # the reused case fix text
+
+
+def test_dds_check_all_ok(monkeypatch, capsys):
+    from robobench.cli import main  # noqa: PLC0415
+
+    monkeypatch.setenv("RMW_IMPLEMENTATION", "rmw_fastrtps_cpp")
+    monkeypatch.setenv("ROS_DISCOVERY_SERVER", "192.168.50.31:11811")
+    monkeypatch.setenv("ROS_SUPER_CLIENT", "True")
+
+    rc = main(["dds-check"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "result: OK" in out
+
+
+def test_dds_check_cross_checks_config(monkeypatch, capsys, tmp_path):
+    from pathlib import Path  # noqa: PLC0415
+
+    from robobench.cli import main  # noqa: PLC0415
+
+    cfg = Path(tmp_path) / "config.yaml"
+    cfg.write_text(
+        'robot:\n'
+        '  ip: "192.168.50.31"\n'
+        '  ssh_user: "u"\n'
+        '  ssh_pass: "p"\n'
+        '  namespace: "tb"\n'
+        'dds:\n'
+        '  discovery_port: 11811\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RMW_IMPLEMENTATION", "rmw_fastrtps_cpp")
+    monkeypatch.setenv("ROS_DISCOVERY_SERVER", "10.0.0.9:11811")  # wrong host
+    monkeypatch.setenv("ROS_SUPER_CLIENT", "True")
+
+    rc = main(["dds-check", "--config", str(cfg)])
+    out = capsys.readouterr().out
+    assert "config expects 192.168.50.31:11811" in out
+    assert rc == 0  # a server mismatch is a warn, not an error
+
+
 def test_recover_dry_run_unreachable_message(monkeypatch, tmp_path, capsys):
     from robobench.recovery.state import RobotState  # noqa: PLC0415
 
