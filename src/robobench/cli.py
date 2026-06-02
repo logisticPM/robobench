@@ -20,6 +20,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from robobench import __version__
+from robobench.cases import load_cases
 from robobench.config import load_adapter_config, render_config_template
 from robobench.dds_check import lint_dds_env
 from robobench.eventlog import EventLogger
@@ -44,6 +45,8 @@ except ImportError:
 # Clock offset severity thresholds (seconds)
 _CLOCK_OK_THRESHOLD = 2.0
 _CLOCK_WARN_THRESHOLD = 10.0
+
+_SUPER_CLIENT_CASE_ID = "connected-as-client-not-super-client"
 
 
 def _adapter_from_config(config_path: str) -> TurtleBot4Adapter:
@@ -692,12 +695,7 @@ def _cmd_dds_check(args: argparse.Namespace) -> int:
         print(f"[dds-check] {finding.message}  [{finding.level.upper()}]")
 
     if any(f.check == "super_client" and f.level == "error" for f in findings):
-        from robobench.cases import load_cases  # noqa: PLC0415
-
-        case = next(
-            (c for c in load_cases() if c.id == "connected-as-client-not-super-client"),
-            None,
-        )
+        case = next((c for c in load_cases() if c.id == _SUPER_CLIENT_CASE_ID), None)
         if case is not None:
             print(f"  -> {case.fix}")
 

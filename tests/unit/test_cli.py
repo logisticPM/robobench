@@ -743,6 +743,7 @@ def test_dds_check_all_ok(monkeypatch, capsys):
     monkeypatch.setenv("RMW_IMPLEMENTATION", "rmw_fastrtps_cpp")
     monkeypatch.setenv("ROS_DISCOVERY_SERVER", "192.168.50.31:11811")
     monkeypatch.setenv("ROS_SUPER_CLIENT", "True")
+    monkeypatch.delenv("FASTRTPS_DEFAULT_PROFILES_FILE", raising=False)
 
     rc = main(["dds-check"])
     out = capsys.readouterr().out
@@ -802,3 +803,15 @@ def test_recover_dry_run_unreachable_message(monkeypatch, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "unreachable" in out
     assert "healthy" not in out
+
+
+def test_dds_check_wrong_rmw_returns_error(monkeypatch, capsys):
+    from robobench.cli import main  # noqa: PLC0415
+
+    monkeypatch.setenv("RMW_IMPLEMENTATION", "rmw_cyclonedds_cpp")
+    monkeypatch.delenv("ROS_DISCOVERY_SERVER", raising=False)
+    rc = main(["dds-check"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "[ERROR]" in out
+    assert "rmw_cyclonedds_cpp" in out
