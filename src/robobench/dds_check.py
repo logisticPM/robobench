@@ -10,17 +10,18 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Literal
 
 _FASTRTPS = "rmw_fastrtps_cpp"
-_TRUTHY = frozenset({"true", "1", "yes", "on"})
+_TRUTHY = frozenset({"true", "1", "yes"})
 
 
 @dataclass(frozen=True)
 class DdsFinding:
     """One environment check result."""
 
-    level: str  # "ok" | "warn" | "error"
-    check: str  # "rmw" | "discovery_server" | "super_client"
+    level: Literal["ok", "warn", "error"]
+    check: Literal["rmw", "discovery_server", "super_client"]
     message: str
 
 
@@ -31,7 +32,7 @@ def _lint_rmw(environ: Mapping[str, str]) -> DdsFinding:
             "warn",
             "rmw",
             "RMW_IMPLEMENTATION not set — relying on the ROS distro default; "
-            "export rmw_fastrtps_cpp to be sure the Discovery Server works.",
+            "export RMW_IMPLEMENTATION=rmw_fastrtps_cpp to be sure the Discovery Server works.",
         )
     if rmw != _FASTRTPS:
         return DdsFinding(
@@ -52,6 +53,7 @@ def _lint_discovery_server(environ: Mapping[str, str], expected_server: str | No
             "ROS_DISCOVERY_SERVER not set — you're on Simple Discovery (multicast), "
             "which won't reach the robot's Discovery Server.",
         )
+    # substring match so a ;-separated multi-server ROS_DISCOVERY_SERVER still matches
     if expected_server and expected_server not in value:
         return DdsFinding(
             "warn",
@@ -63,9 +65,9 @@ def _lint_discovery_server(environ: Mapping[str, str], expected_server: str | No
 
 
 def _lint_super_client(environ: Mapping[str, str]) -> DdsFinding:
-    raw = environ.get("ROS_SUPER_CLIENT", "")
-    if raw.strip().lower() in _TRUTHY:
-        return DdsFinding("ok", "super_client", f"ROS_SUPER_CLIENT={raw.strip()}")
+    raw = environ.get("ROS_SUPER_CLIENT", "").strip()
+    if raw.lower() in _TRUTHY:
+        return DdsFinding("ok", "super_client", f"ROS_SUPER_CLIENT={raw}")
     if environ.get("FASTRTPS_DEFAULT_PROFILES_FILE", "").strip():
         return DdsFinding(
             "ok",
@@ -73,15 +75,15 @@ def _lint_super_client(environ: Mapping[str, str]) -> DdsFinding:
             "ROS_SUPER_CLIENT not set; using FASTRTPS_DEFAULT_PROFILES_FILE "
             "(ensure that profile declares SUPER_CLIENT).",
         )
+    state = f"ROS_SUPER_CLIENT={raw} is not truthy" if raw else "ROS_SUPER_CLIENT not set"
     if environ.get("ROS_DISCOVERY_SERVER", "").strip():
         return DdsFinding(
             "error",
             "super_client",
-            "ROS_SUPER_CLIENT not set — connected as a plain CLIENT; "
-            "ros2 topic list/node list will look empty even though the robot is "
-            "fine. Fix: export ROS_SUPER_CLIENT=True.",
+            f"{state} — connected as a plain CLIENT; ros2 topic list/node list will "
+            "look empty even though the robot is fine. Fix: export ROS_SUPER_CLIENT=True.",
         )
-    return DdsFinding("warn", "super_client", "ROS_SUPER_CLIENT not set.")
+    return DdsFinding("warn", "super_client", f"{state}.")
 
 
 def lint_dds_env(

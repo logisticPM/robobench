@@ -56,7 +56,9 @@ def test_discovery_server_match_is_ok():
 def test_super_client_truthy_variants_ok():
     for value in ("True", "true", "1", "yes"):
         env = {"ROS_DISCOVERY_SERVER": "x:1", "ROS_SUPER_CLIENT": value}
-        assert _by_check(lint_dds_env(env))["super_client"].level == "ok"
+        f = _by_check(lint_dds_env(env))["super_client"]
+        assert f.level == "ok"
+        assert "ROS_SUPER_CLIENT=" in f.message
 
 
 def test_super_client_xml_is_ok():
@@ -74,3 +76,17 @@ def test_super_client_unset_without_server_is_warn():
     # No server set -> the headline problem is the missing server; super-client
     # is a mild warn, not the dire CLIENT error.
     assert _by_check(lint_dds_env({}))["super_client"].level == "warn"
+
+
+def test_discovery_server_set_no_expected_is_ok():
+    env = {"ROS_DISCOVERY_SERVER": "192.168.50.31:11811"}
+    f = _by_check(lint_dds_env(env))["discovery_server"]
+    assert f.level == "ok"
+    assert "matches config" not in f.message
+
+
+def test_super_client_explicit_false_is_error_naming_value():
+    env = {"ROS_DISCOVERY_SERVER": "x:1", "ROS_SUPER_CLIENT": "False"}
+    f = _by_check(lint_dds_env(env))["super_client"]
+    assert f.level == "error"
+    assert "False" in f.message and "plain CLIENT" in f.message
