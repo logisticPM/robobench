@@ -5,6 +5,16 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.16.0a0] — 2026-06-02
+
+### Added
+- **`robobench dds-check`** — a deterministic, offline linter for the workstation's
+  FastDDS Discovery Server environment. Checks `RMW_IMPLEMENTATION`,
+  `ROS_DISCOVERY_SERVER` (optionally cross-checked against `config.yaml`), and
+  `ROS_SUPER_CLIENT`, and tells you whether your shell can actually see the robot's
+  graph — catching the "connected but `ros2 topic list` is empty" CLIENT-vs-
+  SUPER_CLIENT gotcha. No robot, no ROS2 required.
+
 ## [0.15.1a0] — 2026-06-01
 
 ### Fixed
