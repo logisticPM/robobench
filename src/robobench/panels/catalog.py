@@ -31,9 +31,7 @@ _KEY_TO_SUBSYSTEM: dict[str, str] = {
 }
 
 
-def lookup_fixes(
-    check_name: str, status: str, *, robot_model: str | None = None
-) -> list[dict]:
+def lookup_fixes(check_name: str, status: str, *, robot_model: str | None = None) -> list[dict]:
     """Return catalog fixes for a check when its status is WARN/FAIL.
 
     OK/UNKNOWN -> [] (nothing to fix). Unknown check names -> [] (no canned
@@ -49,6 +47,5 @@ def lookup_fixes(
         return []
     cases = find_cases(load_cases(), subsystem=subsystem, robot_model=robot_model)
     return [
-        {"cause": c.cause, "fix": c.fix, "link": c.links[0] if c.links else None}
-        for c in cases
+        {"cause": c.cause, "fix": c.fix, "link": c.links[0] if c.links else None} for c in cases
     ]

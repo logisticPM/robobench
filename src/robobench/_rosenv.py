@@ -14,6 +14,5 @@ def require_rclpy() -> None:
         import rclpy  # noqa: F401, PLC0415
     except ImportError as exc:
         raise RuntimeError(
-            "this command requires ROS2 (rclpy). "
-            "source /opt/ros/<distro>/setup.bash, then retry."
+            "this command requires ROS2 (rclpy). source /opt/ros/<distro>/setup.bash, then retry."
         ) from exc

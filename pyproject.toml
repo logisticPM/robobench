@@ -34,7 +34,9 @@ dashboard = [
 dev = [
   "pytest>=8.0",
   "pytest-mock>=3.12",
-  "ruff>=0.4",
+  # Pinned: `ruff format --check` in CI breaks whenever a new ruff release
+  # changes formatting rules. Bump deliberately and reformat in one commit.
+  "ruff==0.15.14",
   "types-paramiko>=3.4",
   "fastapi>=0.110",
   "uvicorn>=0.29",

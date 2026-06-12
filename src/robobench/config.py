@@ -72,12 +72,7 @@ def load_known_poses(path: Path) -> dict[str, dict]:
 
 def _yaml_dq(value: str) -> str:
     """Escape a string for a YAML double-quoted scalar."""
-    return (
-        value.replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("\r", "\\r")
-        .replace("\n", "\\n")
-    )
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "\\r").replace("\n", "\\n")
 
 
 def render_config_template(

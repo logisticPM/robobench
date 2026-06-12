@@ -215,10 +215,18 @@ def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
         action="store_true",
         help="Let the supervisor invoke recovery on unhealthy state (off by default).",
     )
-    watch.add_argument("--interval", type=_positive_float, default=20.0,
-                       help="Seconds between probes (default 20).")
-    watch.add_argument("--recover-cooldown", type=_positive_float, default=60.0,
-                       help="Min seconds between recovery attempts (default 60).")
+    watch.add_argument(
+        "--interval",
+        type=_positive_float,
+        default=20.0,
+        help="Seconds between probes (default 20).",
+    )
+    watch.add_argument(
+        "--recover-cooldown",
+        type=_positive_float,
+        default=60.0,
+        help="Min seconds between recovery attempts (default 60).",
+    )
     watch.add_argument(
         "--max-recover-attempts",
         type=_positive_int,
@@ -420,10 +428,7 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
                 kwargs={"interval": args.ssh_probe_interval},
                 daemon=True,
             ).start()
-            print(
-                f"[dashboard] SSH connectivity probe every "
-                f"{args.ssh_probe_interval:.0f}s"
-            )
+            print(f"[dashboard] SSH connectivity probe every {args.ssh_probe_interval:.0f}s")
         expected_nodes = _DEFAULT_EXPECTED_NODES
         recovery = RecoveryController(
             build_engine=lambda job: build_turtlebot4_recovery(

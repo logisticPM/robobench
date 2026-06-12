@@ -33,12 +33,24 @@ def _recover_records():
         "odom_publishing": True,
     }
     return [
-        {"ts": "2026-05-31T02:55:53+00:00", "session_id": "6da3444c", "event": "probe",
-         "data": healthy_but_discovery},
-        {"ts": "2026-05-31T02:55:54+00:00", "session_id": "6da3444c", "event": "action",
-         "data": {"aspect": "discovery_server_ok", "name": "restart_discovery_server"}},
-        {"ts": "2026-05-31T02:56:34+00:00", "session_id": "6da3444c", "event": "outcome",
-         "data": {"outcome": "CONVERGED"}},
+        {
+            "ts": "2026-05-31T02:55:53+00:00",
+            "session_id": "6da3444c",
+            "event": "probe",
+            "data": healthy_but_discovery,
+        },
+        {
+            "ts": "2026-05-31T02:55:54+00:00",
+            "session_id": "6da3444c",
+            "event": "action",
+            "data": {"aspect": "discovery_server_ok", "name": "restart_discovery_server"},
+        },
+        {
+            "ts": "2026-05-31T02:56:34+00:00",
+            "session_id": "6da3444c",
+            "event": "outcome",
+            "data": {"outcome": "CONVERGED"},
+        },
     ]
 
 
@@ -54,11 +66,23 @@ def test_format_report_recover_session():
 
 
 def test_format_report_preflight():
-    out = format_report([
-        {"ts": "2026-05-31T02:55:53+00:00", "session_id": "x", "event": "preflight",
-         "data": {"rpi_reachable": False, "discovery_server_ok": False, "clock_synced": False,
-                  "create3_topics": 0, "tb4_nodes_present": False, "odom_publishing": False}},
-    ])
+    out = format_report(
+        [
+            {
+                "ts": "2026-05-31T02:55:53+00:00",
+                "session_id": "x",
+                "event": "preflight",
+                "data": {
+                    "rpi_reachable": False,
+                    "discovery_server_ok": False,
+                    "clock_synced": False,
+                    "create3_topics": 0,
+                    "tb4_nodes_present": False,
+                    "odom_publishing": False,
+                },
+            },
+        ]
+    )
     assert "preflight" in out
     assert "rpi_reachable" in out
     assert "summary: preflight" in out

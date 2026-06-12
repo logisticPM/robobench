@@ -50,7 +50,9 @@ def _restore_env(snapshot: dict) -> None:  # pragma: no cover
             os.environ[k] = v
 
 
-def _shutdown_resources(sd_exec, ds_exec, sd_node, ds_node, sd_context, ds_context) -> None:  # pragma: no cover  # noqa: E501
+def _shutdown_resources(
+    sd_exec, ds_exec, sd_node, ds_node, sd_context, ds_context
+) -> None:  # pragma: no cover  # noqa: E501
     """Shut down executor/node/context objects if they were ever created."""
     if sd_exec:
         sd_exec.shutdown()

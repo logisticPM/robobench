@@ -550,9 +550,7 @@ def test_shutdown_is_graceful_then_forceful(monkeypatch, tmp_path):
     )
     sleeps: list[float] = []
 
-    adapter = turtlebot4.TurtleBot4Adapter(
-        ip="1.2.3.4", ssh_user="u", ssh_pass="p", namespace="tb"
-    )
+    adapter = turtlebot4.TurtleBot4Adapter(ip="1.2.3.4", ssh_user="u", ssh_pass="p", namespace="tb")
     missing_pid = tmp_path / "nope.pid"
     adapter.shutdown(pid_path=missing_pid, settle_s=5.0, sleep=sleeps.append)
 

@@ -218,7 +218,7 @@ def test_render_is_valid_yaml_and_roundtrips(tmp_path):
     # optional sections are commented out -> loader falls back to defaults
     assert loaded["workspace_dir"] is None
     assert loaded["build_packages"] == ["campus_nav_llm"]
-    assert loaded["ssh_user"] == "ubuntu"   # placeholder default
+    assert loaded["ssh_user"] == "ubuntu"  # placeholder default
     assert loaded["ssh_pass"] == "turtlebot4"  # placeholder default
 
 

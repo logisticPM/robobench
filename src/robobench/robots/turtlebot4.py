@@ -210,9 +210,12 @@ class TurtleBot4Adapter(RobotAdapter):
         if initial_pose is not None:
             x, y, yaw = initial_pose
             cmd += [
-                "--initial-pose-x", str(x),
-                "--initial-pose-y", str(y),
-                "--initial-pose-yaw", str(yaw),
+                "--initial-pose-x",
+                str(x),
+                "--initial-pose-y",
+                str(y),
+                "--initial-pose-yaw",
+                str(yaw),
             ]
         result = run_local(cmd, timeout=180)
         if result.returncode == 0:

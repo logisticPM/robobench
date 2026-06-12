@@ -92,9 +92,9 @@ def test_start_apply_restarts_after_done():
             return RecoveryResult(outcome="CONVERGED", actions_taken=[])
 
     ctrl = RecoveryController(build_engine=FakeEngine, thread_factory=_SyncThread)
-    assert ctrl.start_apply() is True   # runs synchronously -> done
+    assert ctrl.start_apply() is True  # runs synchronously -> done
     assert ctrl.job.status == "done"
-    assert ctrl.start_apply() is True   # accepted again after done
+    assert ctrl.start_apply() is True  # accepted again after done
 
 
 def test_start_apply_engine_exception_sets_error():

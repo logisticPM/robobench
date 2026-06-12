@@ -772,13 +772,13 @@ def test_dds_check_cross_checks_config(monkeypatch, capsys, tmp_path):
 
     cfg = Path(tmp_path) / "config.yaml"
     cfg.write_text(
-        'robot:\n'
+        "robot:\n"
         '  ip: "192.168.50.31"\n'
         '  ssh_user: "u"\n'
         '  ssh_pass: "p"\n'
         '  namespace: "tb"\n'
-        'dds:\n'
-        '  discovery_port: 11811\n',
+        "dds:\n"
+        "  discovery_port: 11811\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("RMW_IMPLEMENTATION", "rmw_fastrtps_cpp")

@@ -13,7 +13,9 @@ def test_monitor_only_never_recovers():
     run_supervisor(
         probe=lambda: next(states),
         recover=None,
-        interval=1, cooldown_s=0, max_attempts=3,
+        interval=1,
+        cooldown_s=0,
+        max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: 0.0,
         should_stop=lambda: calls["sleep"] >= 2,  # noqa: PLR2004
@@ -25,10 +27,12 @@ def test_monitor_only_never_recovers():
 
 def test_auto_recover_attempts_and_resets_on_converged():
     states = iter([_BROKEN, _HEALTHY, _BROKEN])
-    results = iter([
-        RecoveryResult(outcome="CONVERGED", actions_taken=["restart_discovery_server"]),
-        RecoveryResult(outcome="CONVERGED", actions_taken=["restart_discovery_server"]),
-    ])
+    results = iter(
+        [
+            RecoveryResult(outcome="CONVERGED", actions_taken=["restart_discovery_server"]),
+            RecoveryResult(outcome="CONVERGED", actions_taken=["restart_discovery_server"]),
+        ]
+    )
     calls = {"sleep": 0, "recover": 0}
 
     def recover():
@@ -38,7 +42,9 @@ def test_auto_recover_attempts_and_resets_on_converged():
     run_supervisor(
         probe=lambda: next(states),
         recover=recover,
-        interval=1, cooldown_s=0, max_attempts=3,
+        interval=1,
+        cooldown_s=0,
+        max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: float(calls["sleep"]),  # advances each cycle -> no cooldown
         should_stop=lambda: calls["sleep"] >= 3,  # noqa: PLR2004
@@ -60,7 +66,9 @@ def test_cooldown_skips_second_attempt():
     run_supervisor(
         probe=lambda: next(states),
         recover=recover,
-        interval=1, cooldown_s=100, max_attempts=3,
+        interval=1,
+        cooldown_s=100,
+        max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: 0.0,  # frozen -> 2nd cycle within cooldown
         should_stop=lambda: calls["sleep"] >= 2,  # noqa: PLR2004
@@ -83,7 +91,9 @@ def test_max_attempts_escalates():
     run_supervisor(
         probe=lambda: next(states),
         recover=recover,
-        interval=1, cooldown_s=0, max_attempts=2,
+        interval=1,
+        cooldown_s=0,
+        max_attempts=2,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: float(calls["sleep"]),
         should_stop=lambda: calls["sleep"] >= 5,  # noqa: PLR2004
@@ -106,7 +116,9 @@ def test_needs_human_escalates_immediately():
     run_supervisor(
         probe=lambda: next(states),
         recover=recover,
-        interval=1, cooldown_s=0, max_attempts=3,
+        interval=1,
+        cooldown_s=0,
+        max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: float(calls["sleep"]),
         should_stop=lambda: calls["sleep"] >= 3,  # noqa: PLR2004
@@ -128,7 +140,9 @@ def test_recover_exception_counts_and_continues():
     run_supervisor(
         probe=lambda: next(states),
         recover=boom,
-        interval=1, cooldown_s=0, max_attempts=2,
+        interval=1,
+        cooldown_s=0,
+        max_attempts=2,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: float(calls["sleep"]),
         should_stop=lambda: calls["sleep"] >= 3,  # noqa: PLR2004
@@ -142,11 +156,13 @@ def test_recover_exception_counts_and_continues():
 def test_healthy_after_escalation_allows_fresh_recovery():
     # unhealthy x2 (cap=2 -> escalate), then healthy (reset), then unhealthy -> recover again
     states = iter([_BROKEN, _BROKEN, _BROKEN, _HEALTHY, _BROKEN])
-    results = iter([
-        RecoveryResult(outcome="STUCK"),
-        RecoveryResult(outcome="STUCK"),
-        RecoveryResult(outcome="CONVERGED", actions_taken=[]),
-    ])
+    results = iter(
+        [
+            RecoveryResult(outcome="STUCK"),
+            RecoveryResult(outcome="STUCK"),
+            RecoveryResult(outcome="CONVERGED", actions_taken=[]),
+        ]
+    )
     calls = {"sleep": 0, "recover": 0}
 
     def recover():
@@ -157,7 +173,9 @@ def test_healthy_after_escalation_allows_fresh_recovery():
     run_supervisor(
         probe=lambda: next(states),
         recover=recover,
-        interval=1, cooldown_s=0, max_attempts=2,
+        interval=1,
+        cooldown_s=0,
+        max_attempts=2,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: float(calls["sleep"]),
         should_stop=lambda: calls["sleep"] >= 5,  # noqa: PLR2004
@@ -182,7 +200,9 @@ def test_probe_exception_continues():
     run_supervisor(
         probe=probe,
         recover=None,
-        interval=1, cooldown_s=0, max_attempts=3,
+        interval=1,
+        cooldown_s=0,
+        max_attempts=3,
         sleep=lambda _s: calls.__setitem__("sleep", calls["sleep"] + 1),
         now=lambda: 0.0,
         should_stop=lambda: calls["sleep"] >= 2,  # noqa: PLR2004
