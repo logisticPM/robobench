@@ -130,6 +130,20 @@ def test_health_prints_json_report(mocker, tmp_path, capsys):
     assert '"clock_offset"' in out
 
 
+def test_runtime_error_becomes_clean_cli_error(mocker, tmp_path, capsys):
+    """Operational failures (SSH down, command timeout) raise RuntimeError;
+    the CLI must print `error: ...` and exit 2 instead of a raw traceback."""
+    fake_adapter = MagicMock()
+    fake_adapter.health_check.side_effect = RuntimeError("SSH connect to 1.2.3.4:22 failed")
+    mocker.patch("robobench.cli.TurtleBot4Adapter", return_value=fake_adapter)
+    cfg = _write_config(tmp_path)
+
+    rc = main(["health", "--robot", "turtlebot4", "--config", str(cfg)])
+
+    assert rc == 2  # noqa: PLR2004
+    assert "error: SSH connect to 1.2.3.4:22 failed" in capsys.readouterr().err
+
+
 def test_shutdown_calls_adapter_shutdown(mocker, tmp_path):
     fake_adapter = MagicMock()
     mocker.patch("robobench.cli.TurtleBot4Adapter", return_value=fake_adapter)

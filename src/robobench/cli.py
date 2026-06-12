@@ -712,7 +712,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except (FileNotFoundError, ValueError) as exc:
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        # RuntimeError is robobench's operational-failure type (SSH down,
+        # command timeout, ROS2 missing) — show it cleanly, not as a traceback.
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

@@ -43,7 +43,7 @@ def load_adapter_config(path: Path) -> dict:
     required = ("ip", "ssh_user", "ssh_pass", "namespace")
     missing = [k for k in required if not robot.get(k)]
     if missing:
-        raise ValueError(f"config.yaml missing required robot.{{}} field(s): {', '.join(missing)}")
+        raise ValueError(f"config.yaml missing required robot field(s): {', '.join(missing)}")
 
     workspace_dir_raw = workspace.get("dir")
     workspace_dir = os.path.expanduser(workspace_dir_raw) if workspace_dir_raw else None
@@ -135,7 +135,12 @@ def resolve_pose(value: str, known_poses: dict[str, dict]) -> tuple[float, float
     """Resolve a pose name or a raw 'x y theta' string to (x, y, theta)."""
     if value in known_poses:
         p = known_poses[value]
-        return (float(p["x"]), float(p["y"]), float(p["theta"]))
+        try:
+            return (float(p["x"]), float(p["y"]), float(p["theta"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"known pose '{value}' is malformed; expected numeric x, y, theta"
+            ) from exc
     _POSE_PARTS = 3
     parts = value.split()
     if len(parts) == _POSE_PARTS:

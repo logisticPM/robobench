@@ -38,7 +38,7 @@ import json
 import math
 import sys
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 # ── Structured log dir ───────────────────────────────────────────────────
@@ -90,13 +90,13 @@ class _ActivationLog:
 
     def __init__(self):
         _LOG_DIR.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         self._path = _LOG_DIR / f"lifecycle_{ts}.jsonl"
         self._f = open(self._path, "a", encoding="utf-8")  # noqa: SIM115
 
     def log(self, event: str, **data):
         record = {
-            "ts": datetime.now(datetime.UTC).isoformat(timespec="milliseconds"),
+            "ts": datetime.now(UTC).isoformat(timespec="milliseconds"),
             "event": event,
             **data,
         }

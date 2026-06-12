@@ -53,6 +53,20 @@ def test_load_adapter_config_missing_required_field_raises(tmp_path: Path):
         load_adapter_config(cfg)
 
 
+def test_load_adapter_config_missing_field_message_is_clean(tmp_path: Path):
+    """The error names the missing fields without f-string artifacts
+    (regression: '{{}}' rendered a literal 'robot.{}' in the message)."""
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("robot:\n  ip: 1.2.3.4\n")
+    with pytest.raises(ValueError) as exc_info:
+        load_adapter_config(cfg)
+    msg = str(exc_info.value)
+    assert "{}" not in msg
+    assert "ssh_user" in msg
+    assert "ssh_pass" in msg
+    assert "namespace" in msg
+
+
 def test_load_adapter_config_returns_build_and_launch_fields(tmp_path: Path):
     """Optional build/launch/health fields in config.yaml flow into the kwargs."""
     yaml_text = """
@@ -162,6 +176,13 @@ def test_resolve_pose_named():
 
 def test_resolve_pose_raw_coords():
     assert resolve_pose("1.0 -2.0 3.14", {}) == (1.0, -2.0, 3.14)
+
+
+def test_resolve_pose_malformed_known_pose_raises_value_error():
+    """A known_poses entry missing x/y/theta raises ValueError naming the pose
+    (regression: a raw KeyError escaped past the CLI's error handling)."""
+    with pytest.raises(ValueError, match="front_door"):
+        resolve_pose("front_door", {"front_door": {"x": 1.0}})
 
 
 def test_resolve_pose_unknown_raises():

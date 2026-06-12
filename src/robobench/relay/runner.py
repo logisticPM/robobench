@@ -15,6 +15,7 @@ import threading
 
 from robobench._rosenv import require_rclpy
 from robobench.relay.specs import (
+    _DISCOVERY_ENV_VARS,
     QOS_RELIABLE,
     QOS_SENSOR,
     QOS_TF_STATIC,
@@ -34,7 +35,10 @@ def _import_msg(type_str: str) -> type:
     return getattr(importlib.import_module(module_name), class_name)
 
 
-_DS_ENV_KEYS = ("ROS_DISCOVERY_SERVER", "ROS_SUPER_CLIENT", "RMW_IMPLEMENTATION")
+# Every env key the bridge mutates: split_discovery_env pops the discovery
+# vars, and the DS context additionally sets RMW_IMPLEMENTATION. The snapshot
+# must cover all of them or the finally-restore silently drops one.
+_DS_ENV_KEYS = (*_DISCOVERY_ENV_VARS, "RMW_IMPLEMENTATION")
 
 
 def _restore_env(snapshot: dict) -> None:  # pragma: no cover

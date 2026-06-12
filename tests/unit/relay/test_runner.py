@@ -21,3 +21,14 @@ def test_run_dds_bridge_raises_clearly_without_ros2(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", fake_import)
     with pytest.raises(RuntimeError, match="requires ROS2"):
         run_dds_bridge(namespace="tb", discovery_server="1.2.3.4:11811")
+
+
+def test_env_snapshot_covers_every_key_the_bridge_mutates():
+    """The restore snapshot must include every env var the bridge pops or sets
+    (regression: FASTRTPS_DEFAULT_PROFILES_FILE was popped via
+    split_discovery_env but missing from the snapshot, so it was never restored)."""
+    from robobench.relay.runner import _DS_ENV_KEYS  # noqa: PLC0415
+    from robobench.relay.specs import _DISCOVERY_ENV_VARS  # noqa: PLC0415
+
+    assert set(_DS_ENV_KEYS) >= set(_DISCOVERY_ENV_VARS)
+    assert "RMW_IMPLEMENTATION" in _DS_ENV_KEYS

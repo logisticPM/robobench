@@ -380,6 +380,39 @@ def test_health_check_unhealthy_when_amcl_missing(mocker):
     assert report["checks"]["amcl_pose"]["status"] == "FAIL"
 
 
+def test_health_check_amcl_echo_timeout_is_fail_not_crash(mocker):
+    """`ros2 topic echo --once` blocks forever when AMCL is silent, so run_local
+    raises RuntimeError on its subprocess timeout. health_check must report that
+    as a FAIL check, not crash (regression: the RuntimeError propagated)."""
+    mocker.patch.object(TurtleBot4Adapter, "check_clock_offset", return_value=0.0)
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:3] == ["ros2", "topic", "echo"]:
+            raise RuntimeError("Local command timed out after 15s: ros2 topic echo ...")
+        if cmd[:3] == ["ros2", "action", "list"]:
+            return MagicMock(returncode=0, stdout="/turtlebot468/navigate_to_pose\n", stderr="")
+        if cmd[:3] == ["ros2", "topic", "info"]:
+            return MagicMock(returncode=0, stdout="Subscription count: 1\n", stderr="")
+        return MagicMock(returncode=0, stdout="ok", stderr="")
+
+    mocker.patch("robobench.robots.turtlebot4.run_local", side_effect=fake_run)
+
+    report = _adapter().health_check()
+
+    assert report["checks"]["amcl_pose"]["status"] == "FAIL"
+    assert report["checks"]["amcl_pose"]["detail"] == "no pose in 15s"
+    assert report["overall"] == "UNHEALTHY"
+
+
+def test_fallback_lifecycle_nodes_match_activator_list():
+    """The CLI-fallback node list must stay in sync with the activator's
+    canonical 9-node list (regression: smoother_server and waypoint_follower
+    were missing, so the fallback never activated them)."""
+    from robobench.diagnostics.lifecycle_activator import LIFECYCLE_NODES  # noqa: PLC0415
+
+    assert tuple(LIFECYCLE_NODES) == TurtleBot4Adapter._LIFECYCLE_NODES
+
+
 def test_build_raises_clear_error_when_workspace_dir_is_none():
     """If workspace_dir is None, build() raises a ValueError that says so."""
     adapter = TurtleBot4Adapter(

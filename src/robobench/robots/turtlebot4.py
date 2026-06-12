@@ -18,6 +18,9 @@ from pathlib import Path
 
 from robobench._process import run_local
 from robobench.adapter_base import RobotAdapter
+from robobench.diagnostics.lifecycle_activator import (
+    LIFECYCLE_NODES as _ACTIVATOR_LIFECYCLE_NODES,
+)
 from robobench.ssh import SSHClient, check_workstation_chrony_config
 
 
@@ -292,12 +295,20 @@ class TurtleBot4Adapter(RobotAdapter):
         except RuntimeError as exc:
             checks["clock_offset"] = {"status": "FAIL", "detail": str(exc)}
 
-        # 2. AMCL publishing
+        # 2. AMCL publishing. `ros2 topic echo --once` blocks until a message
+        # arrives, so a silent AMCL surfaces as a run_local timeout (RuntimeError),
+        # not a nonzero exit — both mean "no pose".
         amcl_topic = f"/{self.namespace}/amcl_pose"
-        amcl = run_local(["ros2", "topic", "echo", "--once", amcl_topic], timeout=15)
+        try:
+            amcl_ok = (
+                run_local(["ros2", "topic", "echo", "--once", amcl_topic], timeout=15).returncode
+                == 0
+            )
+        except RuntimeError:
+            amcl_ok = False
         checks["amcl_pose"] = {
-            "status": "OK" if amcl.returncode == 0 else "FAIL",
-            "detail": "publishing" if amcl.returncode == 0 else "no pose in 15s",
+            "status": "OK" if amcl_ok else "FAIL",
+            "detail": "publishing" if amcl_ok else "no pose in 15s",
         }
 
         # 3. navigate_to_pose action server visible
@@ -333,15 +344,9 @@ class TurtleBot4Adapter(RobotAdapter):
 
         return {"checks": checks, "overall": overall}
 
-    _LIFECYCLE_NODES = (
-        "map_server",
-        "amcl",
-        "controller_server",
-        "planner_server",
-        "behavior_server",
-        "bt_navigator",
-        "velocity_smoother",
-    )
+    # Mirrors the activator's canonical list (incl. order) so the CLI fallback
+    # activates the same nodes the activator would.
+    _LIFECYCLE_NODES = tuple(_ACTIVATOR_LIFECYCLE_NODES)
 
     _PKILL_PATTERNS = (
         "navigation_mode.launch",

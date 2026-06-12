@@ -27,6 +27,26 @@ def test_log_dir_is_under_robobench_logs():
     )
 
 
+def test_activation_log_constructs_and_writes_jsonl(tmp_path, monkeypatch):
+    """_ActivationLog must work without ROS2 (regression: datetime.now(datetime.UTC)
+    raised AttributeError at construction, crashing the activator on startup)."""
+    import json  # noqa: PLC0415
+
+    import robobench.diagnostics.lifecycle_activator as la  # noqa: PLC0415
+
+    monkeypatch.setattr(la, "_LOG_DIR", tmp_path)
+    log = la._ActivationLog()
+    log.log("init", nodes=["map_server"])
+    log.close()
+
+    files = list(tmp_path.glob("lifecycle_*.jsonl"))
+    assert len(files) == 1
+    record = json.loads(files[0].read_text(encoding="utf-8").splitlines()[0])
+    assert record["event"] == "init"
+    assert record["nodes"] == ["map_server"]
+    assert record["ts"]
+
+
 def test_lazy_imports_raises_clear_runtime_error_when_rclpy_missing():
     """When rclpy can't be imported, _lazy_imports() raises a RuntimeError
     that mentions ROS2 — not a cryptic ImportError."""

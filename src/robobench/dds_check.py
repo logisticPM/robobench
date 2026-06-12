@@ -68,14 +68,14 @@ def _lint_super_client(environ: Mapping[str, str]) -> DdsFinding:
     raw = environ.get("ROS_SUPER_CLIENT", "").strip()
     if raw.lower() in _TRUTHY:
         return DdsFinding("ok", "super_client", f"ROS_SUPER_CLIENT={raw}")
+    state = f"ROS_SUPER_CLIENT={raw} is not truthy" if raw else "ROS_SUPER_CLIENT not set"
     if environ.get("FASTRTPS_DEFAULT_PROFILES_FILE", "").strip():
         return DdsFinding(
             "ok",
             "super_client",
-            "ROS_SUPER_CLIENT not set; using FASTRTPS_DEFAULT_PROFILES_FILE "
+            f"{state}; using FASTRTPS_DEFAULT_PROFILES_FILE "
             "(ensure that profile declares SUPER_CLIENT).",
         )
-    state = f"ROS_SUPER_CLIENT={raw} is not truthy" if raw else "ROS_SUPER_CLIENT not set"
     if environ.get("ROS_DISCOVERY_SERVER", "").strip():
         return DdsFinding(
             "error",

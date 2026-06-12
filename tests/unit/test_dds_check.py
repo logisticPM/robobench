@@ -85,6 +85,16 @@ def test_discovery_server_set_no_expected_is_ok():
     assert "matches config" not in f.message
 
 
+def test_super_client_false_with_xml_names_the_value():
+    """With an explicit ROS_SUPER_CLIENT=False plus a profiles file, the message
+    must name the actual value, not claim the variable is 'not set'."""
+    env = {"ROS_SUPER_CLIENT": "False", "FASTRTPS_DEFAULT_PROFILES_FILE": "/p.xml"}
+    f = _by_check(lint_dds_env(env))["super_client"]
+    assert f.level == "ok"
+    assert "False" in f.message
+    assert "not set" not in f.message
+
+
 def test_super_client_explicit_false_is_error_naming_value():
     env = {"ROS_DISCOVERY_SERVER": "x:1", "ROS_SUPER_CLIENT": "False"}
     f = _by_check(lint_dds_env(env))["super_client"]
