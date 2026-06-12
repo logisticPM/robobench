@@ -233,6 +233,12 @@ def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
         default=3,
         help="Consecutive failed recoveries before escalating to monitor-only (default 3).",
     )
+    watch.add_argument(
+        "--webhook",
+        default=None,
+        help="POST JSON alerts (unhealthy/healthy transitions, escalations, "
+        "recovery attempts) to this URL.",
+    )
     watch.set_defaults(func=_cmd_watch)
 
     dds_check = subparsers.add_parser(
@@ -442,6 +448,10 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
                 event_log=job,
             ),
         )
+
+    from robobench.panels.history import run_history_sampler  # noqa: PLC0415
+
+    threading.Thread(target=run_history_sampler, args=(state,), daemon=True).start()
 
     app = create_app(state, namespace=namespace, expected_nodes=expected_nodes, recovery=recovery)
     print(f"robobench dashboard on http://{args.host}:{args.port}")
@@ -658,12 +668,21 @@ def _cmd_watch(args: argparse.Namespace) -> int:
                 event_log=event_log,
             ).run()
 
+    notify = None
+    if args.webhook:
+        from robobench.notify import make_watch_notifier  # noqa: PLC0415
+
+        notify = make_watch_notifier(args.webhook, robot=kwargs["namespace"])
+        print(f"[watch] alerting to webhook {args.webhook}")
+
     def emit(event: str, data: dict) -> None:
         event_log.log(f"watch_{event}", data)
         detail = data.get("aspect") or data.get("reason") or data.get("outcome") or ""
         suffix = f" ({detail})" if detail else ""
         stamp = _time.strftime("%H:%M:%S", _time.localtime())
         print(f"[watch] {stamp}  {event}{suffix}")
+        if notify is not None:
+            notify(event, data)
 
     mode = "auto-recover" if args.auto_recover else "monitor-only"
     print(

@@ -28,6 +28,10 @@ initial pose, a structured health check, and a graceful shutdown
   a **Connectivity** panel that SSH-probes the bring-up layers
   (RPi → Discovery Server → clock → Create3 topics → TB4 nodes) so you see
   *which layer* is broken even when DDS itself is blind.
+- A **Trends** panel (clock offset + scan rate over the last 2 hours — slow
+  drift and time-of-day dropouts the instant panels can't show) and a
+  **Sessions** panel that browses past recover/preflight/watch flight-recorder
+  logs with click-through post-mortems.
 - Each panel shows concrete failure-catalog fixes when it goes red.
 - **One-click Recover**: *Preview* the plan, then *Apply* — runs the recovery
   engine in the background and streams progress. (The nuclear Create3 reboot is
@@ -64,7 +68,7 @@ robobench --help
 | `robobench odom-tf` | Republish odom → base_link TF |
 | `robobench shutdown` | Graceful stop of the navigation stack |
 | `robobench report` | Human-readable post-mortem of the latest recover/preflight session log |
-| `robobench watch` | Continuously supervise a robot — monitor-only, or `--auto-recover` to auto-remediate |
+| `robobench watch` | Continuously supervise a robot — monitor-only, `--auto-recover` to auto-remediate, `--webhook URL` for alerts |
 | `robobench dds-check` | Lint your shell's DDS env (Discovery Server / SUPER_CLIENT / RMW) — no robot needed |
 
 Plus the `robobench-lifecycle-activator` ROS2 node entry point.

@@ -18,18 +18,23 @@ _RECOGNIZED_EVENTS = ("probe", "action", "outcome", "preflight")
 _MIN_STAMPS_FOR_DURATION = 2
 
 
-def latest_event_log(log_dir: Path | None = None) -> Path | None:
-    """Most recent ``events_*.jsonl`` in ``log_dir`` (default ~/.robobench/logs).
+def list_event_logs(log_dir: Path | None = None) -> list[Path]:
+    """All ``events_*.jsonl`` in ``log_dir`` (default ~/.robobench/logs), newest first.
 
     Ignores ``lifecycle_*.jsonl``. Filenames embed a sortable ``YYYYMMDD_HHMMSS``
-    stamp, so a lexical sort is chronological. Returns None if the directory is
+    stamp, so a lexical sort is chronological. Returns [] if the directory is
     absent or has no matching log.
     """
     directory = log_dir or _DEFAULT_LOG_DIR
     if not directory.exists():
-        return None
-    logs = sorted(directory.glob("events_*.jsonl"))
-    return logs[-1] if logs else None
+        return []
+    return sorted(directory.glob("events_*.jsonl"), reverse=True)
+
+
+def latest_event_log(log_dir: Path | None = None) -> Path | None:
+    """Most recent ``events_*.jsonl`` in ``log_dir``, or None (see list_event_logs)."""
+    logs = list_event_logs(log_dir)
+    return logs[0] if logs else None
 
 
 def parse_events(text: str) -> list[dict]:
@@ -73,6 +78,36 @@ def _duration_s(records: list[dict]) -> float | None:
         return delta.total_seconds()
     except (ValueError, TypeError):
         return None
+
+
+def summarize_session(records: list[dict]) -> dict:
+    """One-line metadata for a session's records (for the dashboard session list).
+
+    ``kind`` is ``preflight`` / ``watch`` / ``recover`` / ``unknown``;
+    ``outcome`` is the last recorded outcome (None if the session never reached
+    one); ``duration_s`` spans all timestamped records.
+    """
+    if any(r.get("event") == "preflight" for r in records):
+        kind = "preflight"
+    elif any(str(r.get("event", "")).startswith("watch_") for r in records):
+        kind = "watch"
+    elif any(r.get("event") in _RECOGNIZED_EVENTS for r in records):
+        kind = "recover"
+    else:
+        kind = "unknown"
+
+    outcomes = [
+        (r.get("data") or {}).get("outcome") for r in records if r.get("event") == "outcome"
+    ]
+    return {
+        "session_id": next((r.get("session_id") for r in records if r.get("session_id")), None),
+        "kind": kind,
+        "started": next((r.get("ts") for r in records if r.get("ts")), None),
+        "duration_s": _duration_s(records),
+        "outcome": outcomes[-1] if outcomes else None,
+        "actions": sum(1 for r in records if r.get("event") == "action"),
+        "events": len(records),
+    }
 
 
 def format_report(records: list[dict]) -> str:

@@ -3,6 +3,7 @@
 The app holds a reference to a DiagnosticState (filled by the bridge thread)
 and a set of expected node names (for the DDS panel). Endpoints run pure
 analyzers over state snapshots and attach failure-catalog hints on WARN/FAIL.
+The flight-recorder session endpoints only read JSONL files from ``log_dir``.
 
 The app never imports rclpy — it only reads DiagnosticState. That keeps it
 testable with a plain injected state object.
@@ -10,6 +11,7 @@ testable with a plain injected state object.
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 from typing import Literal
@@ -19,6 +21,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from robobench.eventreport import (
+    format_report,
+    list_event_logs,
+    parse_events,
+    summarize_session,
+)
 from robobench.panels.analyzers import (
     build_dds_graph,
     build_tf_graph,
@@ -31,6 +39,41 @@ from robobench.panels.state import DiagnosticState
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
+# Strict session-log filename shape: no separators, so a URL path segment can
+# never escape log_dir.
+_SESSION_NAME_RE = re.compile(r"^events_[A-Za-z0-9_]+\.jsonl$")
+
+# Cap how many logs the list endpoint parses per request (each is a file read).
+_MAX_SESSIONS_LISTED = 50
+
+
+def _register_session_routes(app: FastAPI) -> None:
+    """Flight-recorder session endpoints (read-only over ``app.state.log_dir``)."""
+
+    @app.get("/api/sessions")
+    def sessions() -> dict:
+        out = []
+        for path in list_event_logs(app.state.log_dir)[:_MAX_SESSIONS_LISTED]:
+            records = parse_events(path.read_text(encoding="utf-8"))
+            out.append({"name": path.name, **summarize_session(records)})
+        return {"sessions": out}
+
+    @app.get("/api/sessions/{name}")
+    def session_detail(name: str) -> dict:
+        if not _SESSION_NAME_RE.match(name):
+            raise HTTPException(status_code=404, detail="no such session")
+        candidates = {p.name: p for p in list_event_logs(app.state.log_dir)}
+        path = candidates.get(name)
+        if path is None:
+            raise HTTPException(status_code=404, detail="no such session")
+        records = parse_events(path.read_text(encoding="utf-8"))
+        return {
+            "name": name,
+            "records": records,
+            "summary": summarize_session(records),
+            "report": format_report(records),
+        }
+
 
 class RecoverRequest(BaseModel):
     mode: Literal["preview", "apply"]
@@ -42,13 +85,19 @@ def create_app(
     expected_nodes: list[str] | None = None,
     *,
     recovery: object | None = None,
+    log_dir: Path | None = None,
 ) -> FastAPI:
-    """Build the FastAPI app bound to a given DiagnosticState."""
+    """Build the FastAPI app bound to a given DiagnosticState.
+
+    ``log_dir`` is where the flight recorder writes ``events_*.jsonl``
+    (None -> the default ~/.robobench/logs).
+    """
     app = FastAPI(title="robobench diagnostics")
     app.state.diag = state
     app.state.namespace = namespace
     app.state.expected_nodes = expected_nodes or []
     app.state.recovery = recovery
+    app.state.log_dir = log_dir
 
     @app.get("/healthz")
     def healthz() -> dict:
@@ -105,6 +154,15 @@ def create_app(
     def connectivity_panel() -> dict:
         return diagnose_connectivity(app.state.diag.connectivity())
 
+    @app.get("/api/panels/history")
+    def history_panel() -> dict:
+        return {
+            "samples": [
+                {"ts": ts, "clock_offset": offset, "scan_hz": hz}
+                for ts, offset, hz in app.state.diag.history()
+            ]
+        }
+
     @app.post("/api/recover", response_model=None)
     def recover(req: RecoverRequest) -> dict | JSONResponse:
         rec = app.state.recovery
@@ -124,6 +182,8 @@ def create_app(
         if rec is None:
             return {"available": False, "status": "idle"}
         return {"available": True, **rec.job.snapshot()}
+
+    _register_session_routes(app)
 
     if _STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")

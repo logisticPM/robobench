@@ -199,3 +199,79 @@ def test_recover_unavailable_without_controller():
     client = TestClient(create_app(DiagnosticState(), namespace="tb", expected_nodes=[]))
     assert client.post("/api/recover", json={"mode": "apply"}).status_code == HTTP_FORBIDDEN
     assert client.get("/api/recover/status").json() == {"available": False, "status": "idle"}
+
+
+def test_history_panel_returns_samples():
+    state = DiagnosticState()
+    state.append_history(100.0, 0.1, 10.0)
+    state.append_history(110.0, None, 0.0)
+    body = _client(state).get("/api/panels/history").json()
+    assert body["samples"] == [
+        {"ts": 100.0, "clock_offset": 0.1, "scan_hz": 10.0},
+        {"ts": 110.0, "clock_offset": None, "scan_hz": 0.0},
+    ]
+
+
+def test_history_panel_empty():
+    assert _client(DiagnosticState()).get("/api/panels/history").json() == {"samples": []}
+
+
+HTTP_NOT_FOUND = 404
+
+_SESSION_JSONL = (
+    '{"ts": "2026-05-31T02:55:53+00:00", "session_id": "abc12345", "event": "probe",'
+    ' "data": {"rpi_reachable": true, "discovery_server_ok": false, "clock_synced": true,'
+    ' "create3_topics": 5, "tb4_nodes_present": true, "odom_publishing": true}}\n'
+    '{"ts": "2026-05-31T02:55:54+00:00", "session_id": "abc12345", "event": "action",'
+    ' "data": {"aspect": "discovery_server_ok", "name": "restart_discovery_server"}}\n'
+    '{"ts": "2026-05-31T02:56:34+00:00", "session_id": "abc12345", "event": "outcome",'
+    ' "data": {"outcome": "CONVERGED"}}\n'
+)
+
+
+def _sessions_client(tmp_path) -> TestClient:
+    app = create_app(DiagnosticState(), namespace="tb", expected_nodes=[], log_dir=tmp_path)
+    return TestClient(app)
+
+
+def test_sessions_list_returns_summaries_newest_first(tmp_path):
+    (tmp_path / "events_20260101_000000_old1.jsonl").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "events_20260102_000000_abc1.jsonl").write_text(_SESSION_JSONL, encoding="utf-8")
+    body = _sessions_client(tmp_path).get("/api/sessions").json()
+    assert [s["name"] for s in body["sessions"]] == [
+        "events_20260102_000000_abc1.jsonl",
+        "events_20260101_000000_old1.jsonl",
+    ]
+    newest = body["sessions"][0]
+    assert newest["outcome"] == "CONVERGED"
+    assert newest["kind"] == "recover"
+    assert newest["actions"] == 1
+
+
+def test_sessions_list_empty_dir(tmp_path):
+    assert _sessions_client(tmp_path).get("/api/sessions").json() == {"sessions": []}
+
+
+def test_session_detail_returns_records_and_summary(tmp_path):
+    (tmp_path / "events_20260102_000000_abc1.jsonl").write_text(_SESSION_JSONL, encoding="utf-8")
+    body = _sessions_client(tmp_path).get("/api/sessions/events_20260102_000000_abc1.jsonl").json()
+    assert body["name"] == "events_20260102_000000_abc1.jsonl"
+    assert [r["event"] for r in body["records"]] == ["probe", "action", "outcome"]
+    assert body["summary"]["outcome"] == "CONVERGED"
+    # pre-rendered human-readable timeline (same renderer as `robobench report`)
+    assert "summary:" in body["report"]
+    assert "restart_discovery_server" in body["report"]
+
+
+def test_session_detail_404_on_missing(tmp_path):
+    resp = _sessions_client(tmp_path).get("/api/sessions/events_20990101_000000_nope.jsonl")
+    assert resp.status_code == HTTP_NOT_FOUND
+
+
+def test_session_detail_rejects_non_session_names(tmp_path):
+    """Anything that isn't a plain events_*.jsonl filename is refused (no traversal)."""
+    (tmp_path / "secret.txt").write_text("nope", encoding="utf-8")
+    client = _sessions_client(tmp_path)
+    assert client.get("/api/sessions/secret.txt").status_code == HTTP_NOT_FOUND
+    assert client.get("/api/sessions/..%5Csecret.txt").status_code == HTTP_NOT_FOUND
+    assert client.get("/api/sessions/events_..%5C..%5Cx.jsonl").status_code == HTTP_NOT_FOUND

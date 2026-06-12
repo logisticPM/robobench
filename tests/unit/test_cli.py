@@ -191,12 +191,33 @@ def test_dashboard_demo_flag_seeds_state_and_skips_bridge(mocker, tmp_path):
 
     assert rc == 0
     seed_mock.assert_called_once()
-    # the thread started in demo mode is the refresh loop, NOT the bridge
-    thread_mock.assert_called_once()
-    assert thread_mock.call_args.kwargs.get("target") is cli._demo_refresh_loop
-    assert thread_mock.call_args.kwargs.get("daemon") is True
+    # demo mode starts the refresh loop + history sampler, NOT the bridge
+    from robobench.panels.bridge import run_bridge  # noqa: PLC0415
+
+    targets = [c.kwargs.get("target") for c in thread_mock.call_args_list]
+    assert cli._demo_refresh_loop in targets
+    assert run_bridge not in targets
+    assert all(c.kwargs.get("daemon") is True for c in thread_mock.call_args_list)
     # demo mode checks against the demo's own expected-node set (self-consistent)
     assert create_app_mock.call_args.kwargs.get("expected_nodes") is cli.DEMO_EXPECTED_NODES
+
+
+def test_dashboard_starts_history_sampler_thread(mocker, tmp_path):
+    """Both demo and real dashboards start the metric-history sampler thread."""
+    cfg = _write_config(tmp_path)
+    mocker.patch("robobench.cli.DiagnosticState", return_value=MagicMock())
+    mocker.patch("robobench.cli.create_app", return_value="APP")
+    mocker.patch("robobench.cli.seed_demo_state")
+    thread_mock = mocker.patch("robobench.cli.threading.Thread")
+    mocker.patch("robobench.cli.uvicorn.run")
+
+    rc = main(["dashboard", "--robot", "turtlebot4", "--config", str(cfg), "--demo"])
+
+    assert rc == 0
+    from robobench.panels.history import run_history_sampler  # noqa: PLC0415
+
+    targets = [c.kwargs.get("target") for c in thread_mock.call_args_list]
+    assert run_history_sampler in targets
 
 
 def test_dashboard_passes_discovery_server_from_config(mocker, tmp_path):
@@ -734,6 +755,59 @@ def test_watch_auto_recover_never_enables_reboot(monkeypatch, tmp_path):
     rc = main(["watch", "--robot", "turtlebot4", "--config", str(cfg), "--auto-recover"])
     assert rc == 0
     assert captured["allow_reboot"] is False
+
+
+def test_watch_webhook_posts_on_transitions(monkeypatch, tmp_path):
+    """`watch --webhook URL` posts dedup'd transition alerts via the notifier."""
+    cfg = _dashboard_config(tmp_path)
+    posts = []
+    monkeypatch.setattr(
+        "robobench.notify.post_webhook",
+        lambda url, payload, **kw: posts.append((url, payload)) or True,
+    )
+
+    def fake_supervisor(probe, recover, **kw):
+        emit = kw["emit"]
+        emit("healthy", {})
+        emit("unhealthy", {"aspect": "clock_synced"})
+        emit("unhealthy", {"aspect": "clock_synced"})
+        emit("healthy", {})
+
+    monkeypatch.setattr("robobench.recovery.supervisor.run_supervisor", fake_supervisor)
+
+    rc = main(
+        [
+            "watch",
+            "--robot",
+            "turtlebot4",
+            "--config",
+            str(cfg),
+            "--webhook",
+            "http://hook.example/robobench",
+        ]
+    )
+
+    assert rc == 0
+    assert [p[1]["event"] for p in posts] == ["unhealthy", "healthy"]
+    assert all(p[0] == "http://hook.example/robobench" for p in posts)
+    assert posts[0][1]["robot"] == "tb"
+    assert posts[0][1]["data"] == {"aspect": "clock_synced"}
+
+
+def test_watch_without_webhook_never_posts(monkeypatch, tmp_path):
+    cfg = _dashboard_config(tmp_path)
+    posts = []
+    monkeypatch.setattr(
+        "robobench.notify.post_webhook",
+        lambda url, payload, **kw: posts.append(payload) or True,
+    )
+    monkeypatch.setattr(
+        "robobench.recovery.supervisor.run_supervisor",
+        lambda probe, recover, **kw: kw["emit"]("unhealthy", {"aspect": "x"}),
+    )
+    rc = main(["watch", "--robot", "turtlebot4", "--config", str(cfg)])
+    assert rc == 0
+    assert posts == []
 
 
 def test_dds_check_flags_plain_client(monkeypatch, capsys):

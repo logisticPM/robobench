@@ -18,13 +18,15 @@ if TYPE_CHECKING:
 class DiagnosticState:
     """Holds the most recent robot data the diagnostic bridge has seen."""
 
-    def __init__(self, scan_window: int = 100) -> None:
+    def __init__(self, scan_window: int = 100, history_window: int = 720) -> None:
         self._lock = threading.Lock()
         self._scan_ts: deque[float] = deque(maxlen=scan_window)
         self._tf: list[tuple[str, str, float]] = []
         self._nodes: list[str] = []
         self._clock_offset: float | None = None
         self._connectivity: RobotState | None = None
+        # (wall_ts, clock_offset, scan_hz) samples; 720 @ 10s interval = 2h of trend.
+        self._history: deque[tuple[float, float | None, float]] = deque(maxlen=history_window)
 
     def record_scan(self, stamp: float) -> None:
         with self._lock:
@@ -62,6 +64,14 @@ class DiagnosticState:
     def clock_offset(self) -> float | None:
         with self._lock:
             return self._clock_offset
+
+    def append_history(self, ts: float, clock_offset: float | None, scan_hz: float) -> None:
+        with self._lock:
+            self._history.append((ts, clock_offset, scan_hz))
+
+    def history(self) -> list[tuple[float, float | None, float]]:
+        with self._lock:
+            return list(self._history)
 
     def set_connectivity(self, state: RobotState | None) -> None:
         with self._lock:

@@ -5,6 +5,41 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.17.0a0] — 2026-06-12
+
+### Added
+- **Dashboard Sessions panel** — the flight recorder is now visible in the
+  browser. `GET /api/sessions` lists past recover/preflight/watch logs (newest
+  first, with kind/outcome/duration); clicking a session shows the same rendered
+  post-mortem as `robobench report` (`GET /api/sessions/{name}`).
+- **Dashboard Trends panel** — a background sampler records (clock offset,
+  scan Hz) every 10 s into a bounded 2-hour history
+  (`GET /api/panels/history`), plotted over wall time. Slow clock drift and
+  time-of-day sensor dropouts are now visible; the instant panels can't show
+  either.
+- **`robobench watch --webhook URL`** — POSTs JSON alerts to a webhook:
+  healthy→unhealthy and unhealthy→healthy transitions (deduped from the
+  per-cycle heartbeat), every escalation, and every recovery attempt. Stdlib
+  only; a dead webhook is logged and never crashes the watch loop. New
+  `robobench.notify` module.
+
+### Fixed
+- `robobench health` no longer crashes when AMCL isn't publishing — the
+  blocking `ros2 topic echo` timeout now reports the intended
+  `amcl_pose: FAIL` check.
+- `robobench-lifecycle-activator` crashed at startup on a bad
+  `datetime.now(datetime.UTC)` call, silently forcing every bring-up onto the
+  slow per-node CLI fallback.
+- The lifecycle CLI fallback now activates the same 9 nodes as the activator
+  (previously missed `smoother_server` and `waypoint_follower`).
+- The DDS relay restores `FASTRTPS_DEFAULT_PROFILES_FILE` on exit.
+- CLI prints `error: ...` instead of a traceback for operational failures
+  (SSH down, command timeouts).
+
+### Removed
+- The unused `websockets` dependency from the `dashboard`/`dev` extras. The
+  panels poll over plain HTTP; if push is ever needed, SSE fits better.
+
 ## [0.16.0a0] — 2026-06-02
 
 ### Added

@@ -56,6 +56,19 @@ def test_clear_scans_empties_the_deque():
     assert list(s.scan_timestamps()) == []
 
 
+def test_history_appends_and_is_bounded():
+    """append_history keeps a bounded (ts, clock_offset, scan_hz) series."""
+    s = DiagnosticState(history_window=2)
+    s.append_history(1.0, 0.1, 10.0)
+    s.append_history(2.0, None, 9.5)
+    s.append_history(3.0, 0.3, 9.0)
+    assert s.history() == [(2.0, None, 9.5), (3.0, 0.3, 9.0)]
+
+
+def test_history_default_empty():
+    assert DiagnosticState().history() == []
+
+
 def test_connectivity_defaults_none_and_roundtrips():
     state = DiagnosticState()
     assert state.connectivity() is None

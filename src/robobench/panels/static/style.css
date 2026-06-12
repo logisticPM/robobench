@@ -98,3 +98,27 @@ header h1 { font-size: 18px; margin: 0; font-weight: 600; }
 .recover button { margin-right: 0.4rem; }
 .recover button:disabled { opacity: 0.5; cursor: not-allowed; }
 .recover-out { margin-top: 0.4rem; white-space: pre-line; font-family: monospace; font-size: 0.85em; color: #444; }
+
+.panel.wide { grid-column: 1 / -1; min-height: 120px; }
+
+.sessions-list { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.sessions-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-bottom: 1px solid #2a333d;
+  cursor: pointer;
+}
+.sessions-list li:hover { background: #222b35; }
+.sessions-list li.muted { color: var(--muted); cursor: default; font-style: italic; }
+
+.session-report {
+  margin: 10px 0 0;
+  padding: 10px;
+  background: #11161c;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: pre;
+  overflow-x: auto;
+}
