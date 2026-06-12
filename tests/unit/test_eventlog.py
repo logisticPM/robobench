@@ -1,6 +1,19 @@
 import json
+from pathlib import Path
 
 from robobench.eventlog import EventLogger, NullEventLogger
+
+
+def test_default_log_dir_is_isolated_in_tests(_isolated_event_log_dir):
+    """An EventLogger() with no log_dir must write into the per-test isolation
+    dir, never the developer's real ~/.robobench/logs (the conftest autouse
+    fixture redirects it — this pins that contract)."""
+    logger = EventLogger()
+    logger.log("probe", {"healthy": True})
+    logger.close()
+
+    assert Path(logger.path).parent == _isolated_event_log_dir
+    assert list(_isolated_event_log_dir.glob("events_*.jsonl"))
 
 
 def test_event_logger_writes_jsonl(tmp_path):
