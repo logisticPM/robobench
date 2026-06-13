@@ -5,6 +5,13 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- The reachability ping now works from Windows workstations: platform-aware
+  flags (`-n/-w` ms vs `-c/-W` s), and Windows' exit-0 "Destination host
+  unreachable" replies no longer count as reachable (a `TTL=` reply is
+  required). Previously every `check`/`preflight`/`recover`/`watch` run and
+  the dashboard SSH probe reported the robot unreachable on Windows.
+
 ## [0.17.0a0] — 2026-06-12
 
 ### Added

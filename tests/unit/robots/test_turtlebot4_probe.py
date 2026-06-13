@@ -5,9 +5,12 @@ from __future__ import annotations
 import subprocess
 from unittest.mock import MagicMock
 
+from robobench._process import ProcessResult
 from robobench.robots.turtlebot4_probe import (
     TurtleBot4Probe,
     _parse_int,
+    _ping_cmd,
+    _ping_succeeded,
 )
 
 _CONNECTIVITY_TOPIC_COUNT = 12
@@ -220,3 +223,26 @@ def test_discovery_port_defaults_to_11811():
     probe.read_connectivity()
     discovery = next(" ".join(c) for c in commands if "ss -ulnp" in " ".join(c))
     assert ":11811" in discovery
+
+
+def test_ping_cmd_is_platform_aware():
+    """Windows ping needs -n/-w (ms); POSIX ping needs -c/-W (s). Regression:
+    the Linux flags were hardcoded, so every Windows probe reported the robot
+    unreachable."""
+    assert _ping_cmd("1.2.3.4", "win32") == ["ping", "-n", "1", "-w", "2000", "1.2.3.4"]
+    assert _ping_cmd("1.2.3.4", "linux") == ["ping", "-c", "1", "-W", "2", "1.2.3.4"]
+
+
+def test_ping_succeeded_requires_ttl_on_windows():
+    """Windows ping exits 0 even for 'Destination host unreachable' replies
+    (the gateway answered), so success additionally requires TTL= in stdout."""
+    reply = ProcessResult(0, "Reply from 1.2.3.4: bytes=32 time=1ms TTL=64", "")
+    unreachable = ProcessResult(0, "Reply from 192.168.1.5: Destination host unreachable.", "")
+    assert _ping_succeeded(reply, "win32") is True
+    assert _ping_succeeded(unreachable, "win32") is False
+    assert _ping_succeeded(ProcessResult(1, "", ""), "win32") is False
+
+
+def test_ping_succeeded_uses_exit_code_on_posix():
+    assert _ping_succeeded(ProcessResult(0, "", ""), "linux") is True
+    assert _ping_succeeded(ProcessResult(1, "", ""), "linux") is False

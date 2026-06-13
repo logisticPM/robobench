@@ -8,9 +8,11 @@ Fixes the upstream's fragile detection:
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from robobench._process import ProcessResult
 from robobench._process import run_local as _rl_default
 from robobench.recovery.probe import RobotProbe
 from robobench.recovery.state import RobotState
@@ -20,9 +22,27 @@ _CLOCK_TOLERANCE_S = 2.0
 _ROS_ENV = "source /etc/turtlebot4/setup.bash && export ROS_SUPER_CLIENT=True && "
 
 
+def _ping_cmd(ip: str, platform: str) -> list[str]:
+    """One-shot ping with ~2s wait: Windows takes -n/-w (ms), POSIX -c/-W (s)."""
+    if platform.startswith("win"):
+        return ["ping", "-n", "1", "-w", "2000", ip]
+    return ["ping", "-c", "1", "-W", "2", ip]
+
+
+def _ping_succeeded(result: ProcessResult, platform: str) -> bool:
+    """Windows ping exits 0 even for 'Destination host unreachable' replies
+    (the gateway answered), so success there also requires a TTL= in stdout.
+    POSIX ping exit codes are trustworthy."""
+    if result.returncode != 0:
+        return False
+    if platform.startswith("win"):
+        return "ttl=" in result.stdout.lower()
+    return True
+
+
 def _default_ping(ip: str) -> bool:
-    result = _rl_default(["ping", "-c", "1", "-W", "2", ip], timeout=5)
-    return result.returncode == 0
+    result = _rl_default(_ping_cmd(ip, sys.platform), timeout=5)
+    return _ping_succeeded(result, sys.platform)
 
 
 class TurtleBot4Probe(RobotProbe):
