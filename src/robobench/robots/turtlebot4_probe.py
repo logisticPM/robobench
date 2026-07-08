@@ -8,6 +8,7 @@ Fixes the upstream's fragile detection:
 
 from __future__ import annotations
 
+import shlex
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -109,14 +110,15 @@ class TurtleBot4Probe(RobotProbe):
                 drift = abs(self._now() - _parse_float(dt.stdout))
                 clock_synced = drift <= _CLOCK_TOLERANCE_S
 
+            ns_pat = shlex.quote(f"/{self.namespace}/")
             tc = ssh.run(
-                ["sh", "-c", f"{_ROS_ENV}ros2 topic list | grep -c '/{self.namespace}/'"],
+                ["sh", "-c", f"{_ROS_ENV}ros2 topic list | grep -c {ns_pat}"],
                 timeout=20,
             )
             create3_topics = _parse_int(tc.stdout) if tc.returncode == 0 else 0
 
             nodes = ssh.run(
-                ["sh", "-c", f"{_ROS_ENV}ros2 node list | grep '/{self.namespace}/'"],
+                ["sh", "-c", f"{_ROS_ENV}ros2 node list | grep {ns_pat}"],
                 timeout=20,
             )
             tb4_nodes_present = nodes.returncode == 0 and bool(nodes.stdout.strip())
@@ -133,10 +135,11 @@ class TurtleBot4Probe(RobotProbe):
         )
 
     def _odom_stable(self, ssh: SSHClient) -> bool:
+        odom_topic = shlex.quote(f"/{self.namespace}/odom")
         cmd = [
             "sh",
             "-c",
-            f"{_ROS_ENV}timeout 8 ros2 topic echo /{self.namespace}/odom --once",
+            f"{_ROS_ENV}timeout 8 ros2 topic echo {odom_topic} --once",
         ]
         for _ in range(2):
             r = ssh.run(cmd, timeout=15)

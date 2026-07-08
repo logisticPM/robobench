@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 from unittest.mock import MagicMock
 
@@ -246,3 +247,24 @@ def test_ping_succeeded_requires_ttl_on_windows():
 def test_ping_succeeded_uses_exit_code_on_posix():
     assert _ping_succeeded(ProcessResult(0, "", ""), "linux") is True
     assert _ping_succeeded(ProcessResult(1, "", ""), "linux") is False
+
+
+def test_probe_shell_quotes_namespace_against_injection():
+    """A namespace carrying shell metacharacters is passed as one shlex-quoted
+    token, never breaking out of the `sh -c` body."""
+    commands: list = []
+    evil = "tb'; touch /tmp/pwned #"
+    probe = TurtleBot4Probe(
+        ip="1.2.3.4",
+        ssh_user="u",
+        ssh_pass="p",
+        namespace=evil,
+        ssh_factory=lambda *a, **k: _RecordingSSH(commands),
+        ping=lambda _ip: True,
+    )
+    probe.read_connectivity()
+    bodies = [c[2] for c in commands if c[0] == "sh"]  # "sh -c <body>"
+    quoted = shlex.quote(f"/{evil}/")
+    assert any(quoted in b for b in bodies)  # appears only in quoted form
+    # the raw break-out sequence never reaches a body as executable shell
+    assert not any("; touch /tmp/pwned" in b.replace(quoted, "") for b in bodies)

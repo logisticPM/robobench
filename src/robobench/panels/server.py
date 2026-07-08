@@ -54,7 +54,15 @@ def _register_session_routes(app: FastAPI) -> None:
     def sessions() -> dict:
         out = []
         for path in list_event_logs(app.state.log_dir)[:_MAX_SESSIONS_LISTED]:
-            records = parse_events(path.read_text(encoding="utf-8"))
+            try:
+                # errors="replace": a log being appended-to by a live watch/recover
+                # can be read mid-write; tolerate a partial multibyte char rather
+                # than 500 the whole panel. OSError: the file was rotated/removed
+                # between listing and reading — skip it this poll.
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            records = parse_events(text)
             out.append({"name": path.name, **summarize_session(records)})
         return {"sessions": out}
 
@@ -66,7 +74,11 @@ def _register_session_routes(app: FastAPI) -> None:
         path = candidates.get(name)
         if path is None:
             raise HTTPException(status_code=404, detail="no such session")
-        records = parse_events(path.read_text(encoding="utf-8"))
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            raise HTTPException(status_code=404, detail="session log unavailable") from exc
+        records = parse_events(text)
         return {
             "name": name,
             "records": records,

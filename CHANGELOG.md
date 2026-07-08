@@ -5,7 +5,26 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.17.1a0] — 2026-07-08
+
 ### Fixed
+- **Dashboard Sessions panel no longer 500s on a mid-write/rotated log.** The
+  `/api/sessions` and `/api/sessions/{name}` endpoints decode with
+  `errors="replace"` and skip files that vanish between listing and reading, so
+  a log a live `watch`/`recover` is appending to can no longer take down the
+  whole panel (which polls every 10 s).
+- **`check_clock_offset` no longer crashes on a noisy SSH channel.** It parses
+  the last non-empty line of `date +%s` (tolerating an MOTD/profile banner) and
+  raises a clean `RuntimeError` on unparseable output, so `robobench health`
+  reports a structured FAIL instead of an uncaught `ValueError`.
+- **`SSHClient.run()` wraps mid-command channel errors.** A drop/timeout during
+  `exec_command` now becomes a `RuntimeError` naming the host, instead of leaking
+  a raw paramiko/socket traceback to the CLI.
+- **`robot.namespace` is normalized and shell-quoted.** Surrounding `/` are
+  stripped at config load, and the value is interpolated into the probe's
+  `sh -c` commands via `shlex.quote`. A leading-slash namespace
+  (`/turtlebot468/`) no longer silently breaks topic/node matching, and shell
+  metacharacters in a namespace can't break out of the command.
 - The reachability ping now works from Windows workstations: platform-aware
   flags (`-n/-w` ms vs `-c/-W` s), and Windows' exit-0 "Destination host
   unreachable" replies no longer count as reachable (a `TTL=` reply is

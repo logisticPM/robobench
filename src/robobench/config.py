@@ -52,7 +52,7 @@ def load_adapter_config(path: Path) -> dict:
         "ip": robot["ip"],
         "ssh_user": robot["ssh_user"],
         "ssh_pass": robot["ssh_pass"],
-        "namespace": robot["namespace"],
+        "namespace": str(robot["namespace"]).strip().strip("/"),
         "workspace_dir": workspace_dir,
         "build_packages": build.get("packages", ["campus_nav_llm"]),
         "launch_package": launch.get("package", "campus_nav_llm"),

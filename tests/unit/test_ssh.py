@@ -117,3 +117,15 @@ def test_sshclient_connect_timeout_raises_runtime_error(mocker):
 
     with pytest.raises(RuntimeError), SSHClient("192.168.50.99", "ubuntu", "turtlebot4"):
         pass
+
+
+def test_sshclient_run_wraps_mid_command_error_in_runtime_error(mocker):
+    """A channel drop/timeout during exec becomes a clean RuntimeError naming
+    the host, not a raw socket/paramiko traceback escaping to the caller."""
+    fake_client = MagicMock()
+    fake_client.exec_command.side_effect = TimeoutError("channel timed out")
+    mocker.patch("robobench.ssh.paramiko.SSHClient", return_value=fake_client)
+
+    with SSHClient("192.168.50.31", "ubuntu", "turtlebot4") as client:  # noqa: SIM117
+        with pytest.raises(RuntimeError, match="192.168.50.31"):
+            client.run(["date", "+%s"], timeout=5.0)

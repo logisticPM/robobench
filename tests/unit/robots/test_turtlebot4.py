@@ -661,3 +661,30 @@ def test_activate_lifecycle_raises_when_fallback_also_fails(monkeypatch):
     adapter = turtlebot4.TurtleBot4Adapter(ip="i", ssh_user="u", ssh_pass="p", namespace="tb")
     with pytest.raises(RuntimeError, match="lifecycle"):
         adapter.activate_lifecycle(map_yaml="/m.yaml")
+
+
+def _clock_ssh(mocker, stdout: str):
+    fake = MagicMock()
+    fake.__enter__.return_value = fake
+    fake.__exit__.return_value = None
+    fake.run.return_value = MagicMock(returncode=0, stdout=stdout, stderr="")
+    mocker.patch("robobench.robots.turtlebot4.SSHClient", return_value=fake)
+
+
+def test_check_clock_offset_tolerates_banner_before_epoch(mocker):
+    """A MOTD/profile banner leaking onto the SSH channel ahead of the epoch
+    must not crash: the last non-empty line is parsed."""
+    mocker.patch(
+        "robobench.robots.turtlebot4._now_utc",
+        return_value=datetime(2026, 5, 27, 12, 0, 10, tzinfo=UTC),
+    )
+    _clock_ssh(mocker, "Welcome to Ubuntu\n1779883205\n")
+    assert _adapter().check_clock_offset() == pytest.approx(5.0, abs=0.01)
+
+
+def test_check_clock_offset_raises_on_unparseable_epoch(mocker):
+    """Garbled `date +%s` output raises RuntimeError (which health_check catches
+    as a structured FAIL) instead of a bare ValueError crash."""
+    _clock_ssh(mocker, "command not found\n")
+    with pytest.raises(RuntimeError, match="date"):
+        _adapter().check_clock_offset()

@@ -275,3 +275,14 @@ def test_session_detail_rejects_non_session_names(tmp_path):
     assert client.get("/api/sessions/secret.txt").status_code == HTTP_NOT_FOUND
     assert client.get("/api/sessions/..%5Csecret.txt").status_code == HTTP_NOT_FOUND
     assert client.get("/api/sessions/events_..%5C..%5Cx.jsonl").status_code == HTTP_NOT_FOUND
+
+
+def test_sessions_tolerates_undecodable_log(tmp_path):
+    """A log being appended-to by a live watch/recover can read as invalid UTF-8
+    mid-write; the endpoint must degrade (skip/replace), not 500 the whole panel."""
+    (tmp_path / "events_20260101_000000_ok.jsonl").write_text(_SESSION_JSONL, encoding="utf-8")
+    (tmp_path / "events_20260102_000000_bad.jsonl").write_bytes(b"\xff\xfe not utf8 \x80\n")
+    resp = _sessions_client(tmp_path).get("/api/sessions")
+    assert resp.status_code == HTTP_OK
+    names = [s["name"] for s in resp.json()["sessions"]]
+    assert "events_20260101_000000_ok.jsonl" in names

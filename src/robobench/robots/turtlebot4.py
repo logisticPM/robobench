@@ -29,6 +29,24 @@ def _now_utc() -> datetime:
     return datetime.now(tz=UTC)
 
 
+def _parse_epoch(stdout: str) -> float:
+    """Parse a ``date +%s`` epoch from stdout's last non-empty line.
+
+    Robust against an MOTD/profile banner leaking onto the SSH channel ahead of
+    the number. Raises ``RuntimeError`` (not ``ValueError``) so ``health_check``'s
+    RuntimeError guard turns a garbled read into a structured FAIL instead of an
+    uncaught crash.
+    """
+    for line in reversed(stdout.strip().splitlines()):
+        text = line.strip()
+        if text:
+            try:
+                return float(text)
+            except ValueError as exc:
+                raise RuntimeError(f"unexpected 'date +%s' output: {text!r}") from exc
+    raise RuntimeError("empty 'date +%s' output")
+
+
 @dataclass
 class TurtleBot4Adapter(RobotAdapter):
     """Adapter for iRobot TurtleBot4 platforms.
@@ -55,7 +73,7 @@ class TurtleBot4Adapter(RobotAdapter):
             raise RuntimeError(
                 f"SSH to {self.ip} failed (rc={result.returncode}): {result.stderr.strip()}"
             )
-        robot_epoch = float(result.stdout.strip())
+        robot_epoch = _parse_epoch(result.stdout)
         local_epoch = _now_utc().timestamp()
         return local_epoch - robot_epoch
 
@@ -124,9 +142,13 @@ class TurtleBot4Adapter(RobotAdapter):
             # 3. Verify drift with a fresh date +%s read.
             date_res = ssh.run(["date", "+%s"], timeout=10)
             if date_res.returncode == 0:
-                robot_epoch = float(date_res.stdout.strip())
-                local_epoch = _now_utc().timestamp()
-                report["drift_seconds"] = local_epoch - robot_epoch
+                try:
+                    robot_epoch = _parse_epoch(date_res.stdout)
+                except RuntimeError:
+                    robot_epoch = None
+                if robot_epoch is not None:
+                    local_epoch = _now_utc().timestamp()
+                    report["drift_seconds"] = local_epoch - robot_epoch
 
             # 4. Kick Create3 NTP restart (HTTP REST, runs from the robot).
             create3 = ssh.run(

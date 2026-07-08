@@ -75,10 +75,15 @@ class SSHClient:
         if self._client is None:
             raise RuntimeError("SSHClient not connected; use as a context manager")
         joined = shlex.join(cmd)
-        _stdin, stdout, stderr = self._client.exec_command(joined, timeout=timeout)
-        rc = stdout.channel.recv_exit_status()
-        out = stdout.read().decode("utf-8", errors="replace")
-        err = stderr.read().decode("utf-8", errors="replace")
+        try:
+            _stdin, stdout, stderr = self._client.exec_command(joined, timeout=timeout)
+            rc = stdout.channel.recv_exit_status()
+            out = stdout.read().decode("utf-8", errors="replace")
+            err = stderr.read().decode("utf-8", errors="replace")
+        except (paramiko.SSHException, OSError) as exc:
+            # Channel dropped/timed out mid-command. Surface a clean RuntimeError
+            # (matching __enter__) instead of a raw paramiko/socket traceback.
+            raise RuntimeError(f"SSH command on {self.host} failed: {exc}") from exc
         return SSHResult(returncode=rc, stdout=out, stderr=err)
 
     def put_text(self, remote_path: str, content: str) -> None:

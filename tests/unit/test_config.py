@@ -232,3 +232,15 @@ def test_render_escapes_special_chars_safely(tmp_path):
     cfg.write_text(text, encoding="utf-8")
     loaded = load_adapter_config(cfg)
     assert loaded["namespace"] == 'bot"x\nevil: y'
+
+
+def test_load_adapter_config_strips_namespace_slashes(tmp_path):
+    """A ROS2-habit '/turtlebot468/' must normalize to the bare token so
+    downstream f-strings don't build '//turtlebot468/...' topic names."""
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        'robot:\n  ip: "1.2.3.4"\n  ssh_user: "u"\n  ssh_pass: "p"\n'
+        '  namespace: "/turtlebot468/"\n',
+        encoding="utf-8",
+    )
+    assert load_adapter_config(cfg)["namespace"] == "turtlebot468"
