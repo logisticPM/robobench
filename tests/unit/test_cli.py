@@ -760,6 +760,9 @@ def test_watch_auto_recover_never_enables_reboot(monkeypatch, tmp_path):
 def test_watch_webhook_posts_on_transitions(monkeypatch, tmp_path):
     """`watch --webhook URL` posts dedup'd transition alerts via the notifier."""
     cfg = _dashboard_config(tmp_path)
+    # Run the (normally daemon-thread) webhook dispatch inline so assertions are
+    # deterministic; the async dispatch itself is covered in test_notify.
+    monkeypatch.setattr("robobench.notify._spawn_daemon", lambda fn: fn())
     posts = []
     monkeypatch.setattr(
         "robobench.notify.post_webhook",
@@ -903,3 +906,36 @@ def test_dds_check_wrong_rmw_returns_error(monkeypatch, capsys):
     assert rc == 1
     assert "[ERROR]" in out
     assert "rmw_cyclonedds_cpp" in out
+
+
+def test_preflight_excludes_nuclear_from_would_try(mocker, tmp_path, capsys):
+    """preflight must not advertise the nuclear reboot_create3 rung — a default
+    `recover` never fires it, so listing it would over-report vs reality."""
+    cfg = _write_config(tmp_path)
+    from robobench.recovery.state import RobotState  # noqa: PLC0415
+
+    # create3_topics == 0 is the only aspect whose ladder has a nuclear rung.
+    bad = RobotState(
+        rpi_reachable=True,
+        discovery_server_ok=True,
+        clock_synced=True,
+        create3_topics=0,
+        tb4_nodes_present=True,
+        odom_publishing=True,
+    )
+    fake_probe = MagicMock()
+    fake_probe.read.return_value = bad
+    mocker.patch("robobench.cli.TurtleBot4Probe", return_value=fake_probe)
+
+    main(["preflight", "--robot", "turtlebot4", "--config", str(cfg)])
+    out = capsys.readouterr().out
+    assert "restart_local_daemon" in out  # a non-nuclear rung IS listed
+    assert "reboot_create3" not in out  # the nuclear rung is NOT
+
+
+def test_watch_detail_surfaces_error_text():
+    from robobench.cli import _watch_detail  # noqa: PLC0415
+
+    assert _watch_detail({"error": "ssh dropped"}) == "ssh dropped"
+    assert _watch_detail({"aspect": "clock_synced"}) == "clock_synced"
+    assert _watch_detail({}) == ""

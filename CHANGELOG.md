@@ -5,6 +5,29 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.17.2a0] — 2026-07-08
+
+### Fixed
+- **Recovery ladder no longer skips a shared remedy across aspects.** The engine's
+  `tried` set is keyed by `(aspect, action)`, so an action reused in `_LADDER`
+  (e.g. `restart_discovery_server` under both `discovery_server_ok` and
+  `create3_topics`) stays available for a later aspect — the `create3_topics`
+  sub-ladder no longer loses a rung and reaches the nuclear reboot early.
+- **`watch --webhook` can't stall the supervisor loop.** The webhook POST is now
+  dispatched on a daemon thread, so a slow or dead endpoint no longer blocks each
+  monitoring cycle for up to the request timeout.
+- **Dashboard Recover buttons no longer wedge on a failed request.** A network
+  drop / server restart during Preview/Apply is caught; the buttons re-enable so
+  the user can retry instead of being stuck until a page reload.
+- **`preflight` no longer advertises the nuclear `reboot_create3`** in
+  `would_try` — a default `recover` never fires it, so listing it over-reported
+  vs. what recovery would actually do.
+- **`watch` console now shows the error text** for `probe_error`/`recover_error`
+  events (previously only the event name; the reason was buried in the log file).
+- **Lifecycle activation timeout raised** so a slow-DDS activation hits the
+  activator's own timeout + rollback instead of being SIGKILLed mid-run (which
+  left Nav2 half-activated).
+
 ## [0.17.1a0] — 2026-07-08
 
 ### Fixed

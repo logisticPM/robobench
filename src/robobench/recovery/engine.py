@@ -80,7 +80,10 @@ class RecoveryEngine:
     def run(self) -> RecoveryResult:
         result = RecoveryResult(outcome="TIMED_OUT")
         start = self._now()
-        tried: set[str] = set()
+        # Keyed by (aspect, action): a remedy shared across aspects in _LADDER
+        # (e.g. restart_discovery_server) stays available for a later aspect even
+        # after being applied for an earlier one.
+        tried: set[tuple[str, str]] = set()
         while True:
             state = self._probe()
             result.final_state = state
@@ -109,20 +112,20 @@ class RecoveryEngine:
                 self._log.log("outcome", {"outcome": result.outcome})
                 return result
 
-            tried.add(action_name)
+            tried.add((aspect, action_name))
             result.actions_taken.append(action_name)
             result.trace.append(f"aspect '{aspect}' -> {action_name}")
             self._log.log("action", {"aspect": aspect, "name": action_name})
             getattr(self._actions, action_name)()
             self._sleep(self._settle_s)
 
-    def _pick_action(self, aspect: str | None, tried: set[str]) -> str | None:
+    def _pick_action(self, aspect: str | None, tried: set[tuple[str, str]]) -> str | None:
         """Cheapest untried ladder action for the failing aspect, honoring the
         nuclear gate. Returns None when nothing applicable is left."""
         for ladder_aspect, action_name, is_nuclear in _LADDER:
             if ladder_aspect != aspect:
                 continue
-            if action_name in tried:
+            if (aspect, action_name) in tried:
                 continue
             if is_nuclear and not self._allow_reboot:
                 continue

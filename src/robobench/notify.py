@@ -11,10 +11,16 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 import urllib.request
 from collections.abc import Callable
 
 _DEFAULT_TIMEOUT_S = 5.0
+
+
+def _spawn_daemon(fn: Callable[[], None]) -> None:
+    """Run ``fn`` on a throwaway daemon thread (fire-and-forget)."""
+    threading.Thread(target=fn, daemon=True).start()
 
 
 class WatchAlerter:
@@ -64,14 +70,23 @@ def post_webhook(
 
 
 def make_watch_notifier(
-    url: str, *, robot: str, alerter: WatchAlerter | None = None
+    url: str,
+    *,
+    robot: str,
+    alerter: WatchAlerter | None = None,
+    spawn: Callable[[Callable[[], None]], None] | None = None,
 ) -> Callable[[str, dict], None]:
-    """Build an emit-compatible callback that POSTs alert-worthy events to ``url``."""
+    """Build an emit-compatible callback that POSTs alert-worthy events to ``url``.
+
+    The POST is handed to ``spawn`` (default: a daemon thread) so a slow or dead
+    webhook can never block the supervisor loop that calls ``notify``.
+    """
     gate = alerter or WatchAlerter()
+    launch = spawn if spawn is not None else _spawn_daemon
 
     def notify(event: str, data: dict) -> None:
         payload = gate.filter(event, data)
         if payload is not None:
-            post_webhook(url, {"robot": robot, **payload})
+            launch(lambda: post_webhook(url, {"robot": robot, **payload}))
 
     return notify

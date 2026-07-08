@@ -71,6 +71,18 @@ def _positive_int(value: str) -> int:
     return parsed
 
 
+def _watch_detail(data: dict) -> str:
+    """Short console detail for a watch event — includes the error text so a
+    live operator sees *why* a probe/recover failed, not just the event name."""
+    return (
+        data.get("aspect")
+        or data.get("reason")
+        or data.get("outcome")
+        or data.get("error")
+        or ""
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     parser = argparse.ArgumentParser(prog="robobench")
     parser.add_argument("--version", action="version", version=f"robobench {__version__}")
@@ -479,7 +491,9 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
     finally:
         event_log.close()
     aspect = state.failing_aspect()
-    would_do = [a for asp, a, _nuke in _LADDER if asp == aspect]
+    # Exclude nuclear rungs: preflight is read-only and a default `recover` run
+    # never fires them, so advertising them here would over-report vs reality.
+    would_do = [a for asp, a, nuke in _LADDER if asp == aspect and not nuke]
     print(
         json.dumps(
             {
@@ -677,7 +691,7 @@ def _cmd_watch(args: argparse.Namespace) -> int:
 
     def emit(event: str, data: dict) -> None:
         event_log.log(f"watch_{event}", data)
-        detail = data.get("aspect") or data.get("reason") or data.get("outcome") or ""
+        detail = _watch_detail(data)
         suffix = f" ({detail})" if detail else ""
         stamp = _time.strftime("%H:%M:%S", _time.localtime())
         print(f"[watch] {stamp}  {event}{suffix}")

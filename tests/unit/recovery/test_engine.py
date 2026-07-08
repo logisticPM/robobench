@@ -206,3 +206,33 @@ def test_engine_logs_events_to_injected_logger():
     action_event = next(d for k, d in events if k == "action")
     assert action_event["name"] == "restart_discovery_server"
     assert action_event["aspect"] == "discovery_server_ok"
+
+
+def test_shared_action_is_available_per_aspect_not_deduped_globally():
+    """restart_discovery_server, applied for discovery_server_ok, must still be
+    reachable in the create3_topics sub-ladder — `tried` is keyed by
+    (aspect, action), not a flat action set."""
+    probe = MagicMock(
+        side_effect=[
+            _state(discovery_server_ok=False),  # -> restart_discovery_server
+            _state(create3_topics=0),  # create3 ladder rung 1 -> restart_local_daemon
+            _state(create3_topics=0),  # rung 2 -> restart_discovery_server (the fix)
+            _healthy(),
+        ]
+    )
+    engine = RecoveryEngine(
+        probe=probe,
+        actions=_fake_actions(),
+        allow_reboot=False,
+        deadline_s=100.0,
+        settle_s=0.0,
+        sleep=lambda _s: None,
+        now=_fake_clock(),
+    )
+    result = engine.run()
+    assert result.outcome == "CONVERGED"
+    assert result.actions_taken == [
+        "restart_discovery_server",
+        "restart_local_daemon",
+        "restart_discovery_server",
+    ]

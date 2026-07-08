@@ -3,12 +3,18 @@ import { startPolling } from "/static/core/api.js";
 import { renderFixes, renderStatusPill } from "/static/core/status.js";
 
 async function postRecover(mode) {
-  const resp = await fetch("/api/recover", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode }),
-  });
-  return { status: resp.status, body: await resp.json().catch(() => ({})) };
+  try {
+    const resp = await fetch("/api/recover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    });
+    return { status: resp.status, body: await resp.json().catch(() => ({})) };
+  } catch (e) {
+    // Network drop / server restart mid-click: never let the await throw, or the
+    // click handler aborts with the buttons left disabled forever.
+    return { status: 0, body: {}, error: String(e) };
+  }
 }
 
 function renderJob(out, job) {
@@ -87,7 +93,11 @@ export function initConnectivityPanel(root) {
     .catch((e) => console.error(e));
 
   previewBtn.addEventListener("click", async () => {
-    const { body } = await postRecover("preview");
+    const { body, error } = await postRecover("preview");
+    if (error) {
+      out.textContent = `Preview request failed: ${error}`;
+      return;
+    }
     if (!body.would_try || body.would_try.length === 0) {
       out.textContent = body.failing_layer
         ? `No web-safe fix for: ${body.failing_layer}`
@@ -102,7 +112,15 @@ export function initConnectivityPanel(root) {
   applyBtn.addEventListener("click", async () => {
     applyBtn.disabled = true;
     previewBtn.disabled = true;
-    const { status } = await postRecover("apply");
+    const { status, error } = await postRecover("apply");
+    if (error) {
+      // Request never reached the server — re-enable so the user can retry
+      // instead of the panel wedging until a full page reload.
+      out.textContent = `Recover request failed: ${error}`;
+      previewBtn.disabled = false;
+      applyBtn.disabled = false;
+      return;
+    }
     if (status === 409) out.textContent = "A recovery is already running.";
     if (statusTimer === null) statusTimer = setInterval(pollStatus, 1500);
     pollStatus();

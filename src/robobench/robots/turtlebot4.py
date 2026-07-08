@@ -239,7 +239,12 @@ class TurtleBot4Adapter(RobotAdapter):
                 "--initial-pose-yaw",
                 str(yaw),
             ]
-        result = run_local(cmd, timeout=180)
+        # Must exceed the activator's own internal budget (discovery wait +
+        # per-node configure/activate polls across all phases) so that on a slow
+        # DDS the activator hits its OWN timeout and runs its try/finally
+        # rollback, rather than being SIGKILLed here mid-activation (which would
+        # leave Nav2 half-activated with no cleanup).
+        result = run_local(cmd, timeout=900)
         if result.returncode == 0:
             return
 
